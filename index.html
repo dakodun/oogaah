@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="style.css">
+<script src="mersenne-twister.js"></script>
+<script src="main.js"></script>
+</head>
+
+<body>
+
+<canvas id="frontbuffer" class="buffer" width="640" height="480" visibility: hidden;">
+Canvas not supported :(
+</canvas>
+
+<canvas id="backbuffer" class="buffer" width="640" height="480" z-index: 1; visibility: hidden;">
+
+</canvas>
+
+<script>
+main(0);
+</script>
+</body>
+</html>
