@@ -41,7 +41,7 @@ OogaahHumanUI.prototype.SetUp = function(owner) {
 	this.mHuman = owner; // store the reference to the human this gui belongs to
 	
 	{
-		var fnt = nmgrs.resMan.mFontStore.GetResource("poetsen");
+		var fnt = nmgrs.resMan.mFontStore.GetResource("kingthings");
 		
 		this.mFadeShape.SetPosition(new Vec2(0, 0));
 		this.mFadeShape.AddPoint(new Vec2(nmain.game.mCanvasSize.mX, 0));
@@ -63,7 +63,7 @@ OogaahHumanUI.prototype.SetUp = function(owner) {
 	}
 	
 	{
-		var fnt = nmgrs.resMan.mFontStore.GetResource("poetsen");
+		var fnt = nmgrs.resMan.mFontStore.GetResource("kingthings");
 		
 		this.mMessageShape.MakeRectangle(new Vec2(2, 60), new Vec2(nmain.game.mCanvasSize.mX - 4, + 36));
 		this.mMessageShape.mDepth = -10;
@@ -82,7 +82,7 @@ OogaahHumanUI.prototype.SetUp = function(owner) {
 	
 	{
 		// textures for ui buttons and font for button text
-		var fnt = nmgrs.resMan.mFontStore.GetResource("poetsen");
+		var fnt = nmgrs.resMan.mFontStore.GetResource("kingthings");
 		var texLarge = nmgrs.resMan.mTexStore.GetResource("buttonLarge");
 		var texSmall = nmgrs.resMan.mTexStore.GetResource("buttonSmall");
 		

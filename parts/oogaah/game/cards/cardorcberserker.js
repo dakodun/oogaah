@@ -14,7 +14,7 @@ function OogaahCardOrcBerserker() {
 	this.mValueText[1] = new Text();
 	this.mValueText[2] = new Text();
 	
-	var fnt = nmgrs.resMan.mFontStore.GetResource("poetsen");
+	var fnt = nmgrs.resMan.mFontStore.GetResource("kingthings");
 	for (var i = 0; i < this.mValueText.length; ++i) {
 		this.mValueText[i].SetFont(fnt);
 		

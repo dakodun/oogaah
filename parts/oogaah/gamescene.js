@@ -91,7 +91,7 @@ OogaahGameScene.prototype.SetUp = function() {
 	
 	{
 		var pos = new Vec2(102, 143);
-		var fnt = nmgrs.resMan.mFontStore.GetResource("poetsen");
+		var fnt = nmgrs.resMan.mFontStore.GetResource("kingthings");
 		
 		this.mStatusAVText.SetFont(fnt);
 		this.mStatusAVText.SetFontSize(36);

@@ -100,7 +100,7 @@ OogaahOptionsScene.prototype.SetUp = function() {
 	
 	{
 		var tex = nmgrs.resMan.mTexStore.GetResource("buttonLarge");
-		var fnt = nmgrs.resMan.mFontStore.GetResource("poetsen");
+		var fnt = nmgrs.resMan.mFontStore.GetResource("kingthings");
 		
 		this.mBackButton.SetUp(new Vec2(265, 424), new Vec2(109, 29), 0);
 		this.mBackButton.mSpriteIdle.SetTexture(tex, 8, 2, -1, -1); this.mBackButton.mSpriteIdle.SetCurrentFrame(0);

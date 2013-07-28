@@ -20,7 +20,7 @@ OogaahMenuControl.prototype.SetUp = function() {
 	
 	this.mMenuOptions[0].SetPosition(new Vec2(250, 410));
 	
-	var fnt = nmgrs.resMan.mFontStore.GetResource("poetsen");
+	var fnt = nmgrs.resMan.mFontStore.GetResource("kingthings");
 	this.mMenuOptions[0].SetFont(fnt);
 	this.mMenuOptions[0].SetFontSize(26);
 	
