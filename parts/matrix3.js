@@ -147,5 +147,37 @@ Matrix3.prototype.Scale = function(scale) {
 	
 	this.Multiply(m);
 }
+
+// skews the matrix by multiplying it with the skewing matrix
+Matrix3.prototype.Skew = function(skew) {
+	var angleRad = skew.GetCopy();
+	
+	// the tangent shouldn't exceed 90 is either direction
+	if (angleRad.mX >= 90) {
+		angleRad.mX = 89;
+	}
+	else if (angleRad.mX <= -90) {
+		angleRad.mX = -89;
+	}
+	
+	// boundary check for y
+	if (angleRad.mY >= 90) {
+		angleRad.mY = 89;
+	}
+	else if (angleRad.mY <= -90) {
+		angleRad.mY = -89;
+	}
+	
+	// convert to radians
+	angleRad.mX = (angleRad.mX * (Math.PI / 180));
+	angleRad.mY = (angleRad.mY * (Math.PI / 180));
+	
+	var m = new Matrix3();
+	m.mArray[0][0] = 1; m.mArray[0][1] = -Math.tan(angleRad.mY); m.mArray[0][2] = 0;
+	m.mArray[1][0] = -Math.tan(angleRad.mX); m.mArray[1][1] = 1; m.mArray[1][2] = 0;
+	m.mArray[2][0] = 0; m.mArray[2][1] = 0; m.mArray[2][2] = 1;
+	
+	this.Multiply(m);
+}
 // ...End
 

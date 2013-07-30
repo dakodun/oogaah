@@ -11,6 +11,7 @@ function Renderable() {
 	this.mTransformation = new Matrix3();
 	this.mScale = new Vec2(1.0, 1.0);
 	this.mRotation = 0;
+	this.mSkew = new Vec2();
 	this.mAlpha = 1.0;
 	this.mCompositeOp = "source-over";
 	
@@ -38,6 +39,7 @@ Renderable.prototype.Copy = function(other) {
 	this.mTransformation.Copy(other.mTransformation);
 	this.mScale.Copy(other.mScale); // copy the scale
 	this.mRotation = other.mRotation; // copy the rotation
+	this.mSkew.Copy(other.mSkew); // copy the skew
 	this.mAlpha = other.mAlpha; // copy the alpha value
 	this.mCompositeOp = other.mCompositeOp; //
 	
@@ -127,6 +129,24 @@ Renderable.prototype.Rotate = function(rotation) {
 	this.UpdateGlobalMask();
 }
 
+Renderable.prototype.SetSkew = function(skew) {
+	this.mSkew.Copy(skew);
+	
+	this.UpdateGlobalBoundingBox();
+	this.UpdateGlobalMask();
+}
+
+Renderable.prototype.GetSkew = function() {
+	return this.mSkew;
+}
+
+Renderable.prototype.Skew = function(skew) {
+	this.mTransformation.Skew(skew);
+	
+	this.UpdateGlobalBoundingBox();
+	this.UpdateGlobalMask();
+}
+
 Renderable.prototype.SetTransformation = function(transform) {
 	if (transform != null) { // if a valid matrix was supplied
 		this.mTransformation.Copy(transform); // replace current transformation with supplied matrix
@@ -154,6 +174,7 @@ Renderable.prototype.UpdateGlobalBoundingBox = function() {
 		
 		trans.Translate(new Vec2(this.mOrigin.mX,  this.mOrigin.mY)); // translate back from the origin
 		trans.Rotate(this.mRotation); // apply rotation (after scaling is done)
+		trans.Skew(this.mSkew);
 		trans.Scale(this.mScale); // apply scale first (to scale in x and y axes as defined by the texture)
 		trans.Translate(new Vec2(-this.mOrigin.mX, -this.mOrigin.mY)); // translate to the origin
 	}
@@ -200,6 +221,7 @@ Renderable.prototype.UpdateGlobalMask = function() {
 		
 		trans.Translate(new Vec2(this.mOrigin.mX,  this.mOrigin.mY)); // translate back from the origin
 		trans.Rotate(this.mRotation); // apply rotation (after scaling is done)
+		trans.Skew(this.mSkew);
 		trans.Scale(this.mScale); // apply scale first (to scale in x and y axes as defined by the texture)
 		trans.Translate(new Vec2(-this.mOrigin.mX, -this.mOrigin.mY)); // translate to the origin
 	}

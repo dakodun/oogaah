@@ -35,6 +35,7 @@ Shape.prototype.Copy = function(other) {
 	this.mTransformation.Copy(other.mTransformation);
 	this.mScale.Copy(other.mScale);
 	this.mRotation = other.mRotation;
+	this.mSkew.Copy(other.mSkew);
 	this.mAlpha = other.mAlpha;
 	this.mCompositeOp = other.mCompositeOp; //
 	
@@ -96,6 +97,7 @@ Shape.prototype.Render = function(renderTarget, cull, cullRect) {
 				
 				trans.Translate(new Vec2(this.mOrigin.mX,  this.mOrigin.mY)); // translate back from the origin
 				trans.Rotate(this.mRotation); // appl rotation (after scaling is done)
+				trans.Skew(this.mSkew);
 				trans.Scale(this.mScale); // apply scale first (to scale in x and y axes as defined by the texture)
 				trans.Translate(new Vec2(-this.mOrigin.mX, -this.mOrigin.mY)); // translate to the origin
 			}
@@ -185,6 +187,7 @@ Shape.prototype.UpdateGlobalBoundingBox = function() {
 		
 		trans.Translate(new Vec2(this.mOrigin.mX,  this.mOrigin.mY)); // translate back from the origin
 		trans.Rotate(this.mRotation); // apply rotation (after scaling is done)
+		trans.Skew(this.mSkew);
 		trans.Scale(this.mScale); // apply scale first (to scale in x and y axes as defined by the texture)
 		trans.Translate(new Vec2(-this.mOrigin.mX, -this.mOrigin.mY)); // translate to the origin
 	}
