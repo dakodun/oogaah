@@ -98,13 +98,19 @@ OogaahHumanUI.prototype.SetUp = function(owner) {
 			
 			// set up the button text
 			this.mButtonText[0].SetFont(fnt);
-			this.mButtonText[0].SetFontSize(14);
-			this.mButtonText[0].SetPosition(new Vec2(pos.mX + 54, pos.mY + 5));
+			this.mButtonText[0].SetFontSize(19);
+			this.mButtonText[0].SetPosition(new Vec2(pos.mX + 54, pos.mY));
 			this.mButtonText[0].mAbsolute = true;
 			this.mButtonText[0].mDepth = 0;
 			this.mButtonText[0].mColour = "#FFFFFF";
 			this.mButtonText[0].mAlign = "centre";
 			this.mButtonText[0].SetString("Play");
+			
+			this.mButtonText[0].mShadow = true;
+			this.mButtonText[0].mShadowColour = "#090B0D";
+			this.mButtonText[0].mShadowAlpha = 0.5;
+			this.mButtonText[0].mShadowBlur = 2;
+			this.mButtonText[0].mShadowOffset.Set(2, 2);
 			
 			// set up the button front image (cover)
 			this.mButtonCovers[0].SetUp(pos, new Vec2(109, 29), 0);
@@ -123,13 +129,19 @@ OogaahHumanUI.prototype.SetUp = function(owner) {
 			this.mButtons[1].mSpriteInactive.SetTexture(texLarge, 8, 2, -1, -1); this.mButtons[1].mSpriteInactive.SetCurrentFrame(6);
 			
 			this.mButtonText[1].SetFont(fnt);
-			this.mButtonText[1].SetFontSize(14);
-			this.mButtonText[1].SetPosition(new Vec2(pos.mX + 54, pos.mY + 5));
+			this.mButtonText[1].SetFontSize(19);
+			this.mButtonText[1].SetPosition(new Vec2(pos.mX + 54, pos.mY));
 			this.mButtonText[1].mAbsolute = true;
 			this.mButtonText[1].mDepth = 0;
 			this.mButtonText[1].mColour = "#FFFFFF";
 			this.mButtonText[1].mAlign = "centre";
 			this.mButtonText[1].SetString("Pass");
+			
+			this.mButtonText[1].mShadow = true;
+			this.mButtonText[1].mShadowColour = "#090B0D";
+			this.mButtonText[1].mShadowAlpha = 0.5;
+			this.mButtonText[1].mShadowBlur = 2;
+			this.mButtonText[1].mShadowOffset.Set(2, 2);
 			
 			this.mButtonCovers[1].SetUp(pos, new Vec2(109, 29), 0);
 			this.mButtonCovers[1].mSpriteIdle.SetTexture(texLarge, 8, 2, -1, -1); this.mButtonCovers[1].mSpriteIdle.SetCurrentFrame(1);
@@ -147,13 +159,19 @@ OogaahHumanUI.prototype.SetUp = function(owner) {
 			this.mButtons[2].mSpriteInactive.SetTexture(texSmall, 4, 1, -1, -1); this.mButtons[2].mSpriteInactive.SetCurrentFrame(6);
 			
 			this.mButtonText[2].SetFont(fnt);
-			this.mButtonText[2].SetFontSize(14);
-			this.mButtonText[2].SetPosition(new Vec2(pos.mX + 14, pos.mY + 6));
+			this.mButtonText[2].SetFontSize(19);
+			this.mButtonText[2].SetPosition(new Vec2(pos.mX + 14, pos.mY + 1));
 			this.mButtonText[2].mAbsolute = true;
 			this.mButtonText[2].mDepth = 0;
 			this.mButtonText[2].mColour = "#FFFFFF";
 			this.mButtonText[2].mAlign = "centre";
 			this.mButtonText[2].SetString("?");
+			
+			this.mButtonText[2].mShadow = true;
+			this.mButtonText[2].mShadowColour = "#694343";
+			this.mButtonText[2].mShadowAlpha = 0.5;
+			this.mButtonText[2].mShadowBlur = 2;
+			this.mButtonText[2].mShadowOffset.Set(2, 2);
 		}
 		
 		{ // options button
@@ -165,13 +183,19 @@ OogaahHumanUI.prototype.SetUp = function(owner) {
 			this.mButtons[3].mSpriteInactive.SetTexture(texSmall, 4, 1, -1, -1); this.mButtons[3].mSpriteInactive.SetCurrentFrame(6);
 			
 			this.mButtonText[3].SetFont(fnt);
-			this.mButtonText[3].SetFontSize(14);
-			this.mButtonText[3].SetPosition(new Vec2(pos.mX + 14, pos.mY + 5));
+			this.mButtonText[3].SetFontSize(19);
+			this.mButtonText[3].SetPosition(new Vec2(pos.mX + 14, pos.mY + 2));
 			this.mButtonText[3].mAbsolute = true;
 			this.mButtonText[3].mDepth = 0;
 			this.mButtonText[3].mColour = "#FFFFFF";
 			this.mButtonText[3].mAlign = "centre";
 			this.mButtonText[3].SetString("O");
+			
+			this.mButtonText[3].mShadow = true;
+			this.mButtonText[3].mShadowColour = "#694343";
+			this.mButtonText[3].mShadowAlpha = 0.5;
+			this.mButtonText[3].mShadowBlur = 2;
+			this.mButtonText[3].mShadowOffset.Set(2, 2);
 		}
 	}
 	
@@ -233,6 +257,7 @@ OogaahHumanUI.prototype.Process = function() {
 		// update button text colour depending on button state
 		if (this.mButtons[i].mActive == false) {
 			this.mButtonText[i].mColour = "#888888";
+			this.mButtonText[i].mShadow = false;
 		}
 		else {
 			if (this.mButtons[i].mStatus == "idle") {
