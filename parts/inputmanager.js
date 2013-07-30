@@ -56,6 +56,7 @@ function InputManager() {
 		this.mButtonStates[i] = 0;
 	}
 	
+	this.mMouseInCanvas = false; // is the mouse inside the canvas
 	this.mLocalMouseCoords = new Vec2(0, 0); // coordinates of the mouse in the canvas
 	this.mGlobalMouseCoords = new Vec2(0, 0); // coordinates of the mouse in the page
 	this.mWheelDelta = 0;
@@ -132,21 +133,27 @@ InputManager.prototype.HandleMouseMove = function(e) {
 		this.mLocalMouseCoords.mX = e.pageX - nmain.game.mCanvasPos.mX;
 		this.mLocalMouseCoords.mY = e.pageY - nmain.game.mCanvasPos.mY;
 		
+		this.mMouseInCanvas = true; // assume mouse is inside canvas
+		
 		// if mouse x is off the canvas then set it to the bounds
 		if (this.mLocalMouseCoords.mX < 0) {
 			this.mLocalMouseCoords.mX = 0;
+			this.mMouseInCanvas = false;
 		}
 		else if (this.mLocalMouseCoords.mX > nmain.game.mCanvasSize.mX) {
 			this.mLocalMouseCoords.mX = nmain.game.mCanvasSize.mX;
+			this.mMouseInCanvas = false;
 		}
 		
 		
 		// if mouse y is off the canvas then set it to the bounds
 		if (this.mLocalMouseCoords.mY < 0) {
 			this.mLocalMouseCoords.mY = 0;
+			this.mMouseInCanvas = false;
 		}
 		else if (this.mLocalMouseCoords.mY > nmain.game.mCanvasSize.mY) {
 			this.mLocalMouseCoords.mY = nmain.game.mCanvasSize.mY;
+			this.mMouseInCanvas = false;
 		}
 	}
 	
@@ -230,6 +237,11 @@ InputManager.prototype.GetKeyboardReleased = function(key) {
 	}
 	
 	return false;
+}
+
+// returns true if the mouse is inside the canvas
+InputManager.prototype.GetMouseInCanvas = function() {
+	return this.mMouseInCanvas;
 }
 
 // returns the coordinates of the mouse on the canvas
