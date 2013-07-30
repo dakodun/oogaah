@@ -66,6 +66,7 @@ OogaahCardOrcWarrior.prototype.Play = function(cards) {
 			
 			if (cards[cards.length - 1].mCardAttack == "S") { // if the last card in the array is an S
 				cards[cards.length - 1].mMimic = this.GetCopy(); // set its mimic value
+				currScene.mLog.AddEntry(5, currPlayer.mName + " activated ability " + cards[cards.length - 1].mCardAbility + ".");
 			}
 			
 			if (currPlayer.mHand.mCards.length > 0) { // if player still has cards left in hand

@@ -65,6 +65,7 @@ OogaahCardOrcShaman.prototype.Play = function(cards) {
 			
 			if (cards[cards.length - 1].mCardAttack == "S") { // if the last card in the array is an S
 				cards[cards.length - 1].mMimic = this.GetCopy(); // set its mimic value
+				currScene.mLog.AddEntry(5, currPlayer.mName + " activated ability " + cards[cards.length - 1].mCardAbility + ".");
 			}
 			
 			currPlayer.RemoveSelected(); // remove cards from current player's hands
