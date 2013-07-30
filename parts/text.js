@@ -32,8 +32,17 @@ function Text() {
 	this.mString = ""; // the current text to be rendered
 	this.mTextParts = new Array();
 	this.mColour = "#FFFFFF"; // the colour of the text
-	this.mShadowColour = "#000000"; // the colour of the offset shadow
+	
 	this.mShadow = false; // whether to render an offset shadow
+	this.mShadowAlpha = 255; // the alpha value of the shaod
+	this.mShadowColour = "#000000"; // the colour of the offset shadow
+	this.mShadowBlur = 0; // the amount for blur to apply to the shaodw
+	this.mShadowOffset = new Vec2(1, 1); // the shadow's offset in comparison to the text
+	
+	this.mOutline = false; // whether to draw an outline around the text or not
+	this.mOutlineColour = "#000000"; // the colour of the text outline
+	this.mOutlineAlpha = 1.0; // the alpha value of the text outline
+	this.mOutlineWidth = 1; // the width of the text outline
 	
 	this.mAlign = "left"; // the alignment of the text (left, centre, right)
 	
@@ -63,7 +72,7 @@ Text.prototype.Copy = function(other) {
 	this.mScale.Copy(other.mScale);
 	this.mRotation = other.mRotation;
 	this.mAlpha = other.mAlpha;
-	this.mCompositeOp = other.mCompositeOp; //
+	this.mCompositeOp = other.mCompositeOp;
 	
 	this.mLocalBoundingBox.Copy(other.mLocalBoundingBox);
 	this.mGlobalBoundingBox.Copy(other.mGlobalBoundingBox);
@@ -79,13 +88,20 @@ Text.prototype.Copy = function(other) {
 	this.mString = other.mString;
 	
 	this.mTextParts.splice(0, this.mTextParts.length);
-	for (var i = 0; i < other.mTextParts.length; ++i) {
-		this.mTextParts.push(other.mTextParts[i].GetCopy());
-	}
+	this.mTextParts = util.ConcatArray(this.mTextParts, other.mTextParts)
 	
 	this.mColour = other.mColour;
-	this.mShadowColour = other.mShadowColour;
+	
 	this.mShadow = other.mShadow;
+	this.mShadowAlpha = other.mShadowAlpha;
+	this.mShadowColour = other.mShadowColour;
+	this.mShadowBlur = other.mShadowBlur;
+	this.mShadowOffset.Copy(other.mShadowOffset);
+	
+	this.mOutline = other.mOutline;
+	this.mOutlineColour = other.mOutlineColour;
+	this.mOutlineAlpha = other.mOutlineAlpha;
+	this.mOutlineWidth = other.mOutlineWidth;
 	
 	this.mAlign = other.mAlign;
 	
@@ -120,9 +136,8 @@ Text.prototype.Render = function(renderTarget, cull, cullRect) {
 			// set the font of the text (size and family)
 			renderTarget.font = this.mFontString;
 			
-			// store the current alpha value and then set it to the sprite's alpha value
+			// store the current alpha value
 			var oldAlpha = renderTarget.globalAlpha;
-			renderTarget.globalAlpha = this.mAlpha;
 			
 			// 
 			var oldComp = renderTarget.globalCompositeOperation;
@@ -151,13 +166,43 @@ Text.prototype.Render = function(renderTarget, cull, cullRect) {
 				renderTarget.transform(a, b, c, d, e, f);
 			}
 			
-			for (var i = 0; i < this.mTextParts.length; ++i) {
-				renderTarget.fillStyle = this.mColour; // set the colour of the filled text
-				renderTarget.fillText(this.mTextParts[i].mString, this.mTextParts[i].mPos.mX, this.mTextParts[i].mPos.mY); // draw filled text
+			var shadowColour = "rgba(0, 0, 0, 0)"; // the default shadow colour is black and transparent
+			if (this.mShadow == true) { // if shadow is enabled
+				// update the shadow string
+				shadowColour = "rgba(" + parseInt(this.mShadowColour.substr(1, 2), 16) + ", " +
+						parseInt(this.mShadowColour.substr(3, 2), 16) + ", " +
+						parseInt(this.mShadowColour.substr(5, 2), 16) + ", " + this.mShadowAlpha + ")";
+				
+				// set the other attributes of the shadow
+				renderTarget.shadowBlur = this.mShadowBlur;
+				renderTarget.shadowOffsetX = this.mShadowOffset.mX;
+				renderTarget.shadowOffsetY = this.mShadowOffset.mY;
+			}
+			
+			renderTarget.fillStyle = this.mColour; // set the colour of the filled text
+			renderTarget.strokeStyle = this.mOutlineColour; // set the colour of the outline
+			renderTarget.lineWidth = this.mOutlineWidth; // set the outline width
+			
+			for (var i = 0; i < this.mTextParts.length; ++i) { // for all text parts
+				// set the shadow colour and alpha value of the filled text
+				renderTarget.shadowColor = shadowColour;
+				renderTarget.globalAlpha = this.mAlpha;
+				
+				// draw filled text
+				renderTarget.fillText(this.mTextParts[i].mString, this.mTextParts[i].mPos.mX, this.mTextParts[i].mPos.mY);
+				
+				if (this.mOutline == true) { // if we are to do an outline
+					// set the shadow colour and alpha value of the filled text
+					renderTarget.shadowColor = "rgba(0, 0, 0, 0)"; // no shadow
+					renderTarget.globalAlpha = this.mOutlineAlpha;
+					
+					// draw the outline
+					renderTarget.strokeText(this.mTextParts[i].mString, this.mTextParts[i].mPos.mX, this.mTextParts[i].mPos.mY);
+				}
 			}
 			
 			renderTarget.globalAlpha = oldAlpha; // restore the old alpha value
-			renderTarget.globalCompositeOperation = oldComp; // 
+			renderTarget.globalCompositeOperation = oldComp; // restore the saved composite value
 			renderTarget.restore(); // load the saved transform matrix
 		}
 	}
