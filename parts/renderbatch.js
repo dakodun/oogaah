@@ -58,13 +58,11 @@ RenderBatch.prototype.Clear = function() {
 
 // render the render batch to the canvas
 RenderBatch.prototype.Render = function(camera, target) {
-	// use the supplied target (canvas) if valid, otherwise use the main 
-	var targ = nmain.game.mCurrCanvas;
+	// use the supplied target (context) if valid, otherwise use the main context
+	var targ = nmain.game.mCurrContext;
 	if (target != null) {
 		targ = target;
 	}
-	
-	var targContext = targ.getContext("2d"); // get the conext associated with the canvas
 	
 	// if we need to sort the renderables array
 	if (this.mNeedSort == true) {
@@ -94,40 +92,42 @@ RenderBatch.prototype.Render = function(camera, target) {
 		this.mNeedSort = false; // notify that sort is complete
 	}
 	
-	var context = targContext;
+	var camContext = targ; // reference to the camera context (if simple cam, reference to main context)
+	
+	// create the rectangle that frustrum culling is check against, defaulting to canvas' dimensions
 	var cullRect = new Polygon();
-	cullRect.MakeRectangle(new Vec2(0, 0), new Vec2(targ.width, targ.height));
+	cullRect.MakeRectangle(new Vec2(0, 0), new Vec2(targ.canvas.width, targ.canvas.height));
 	
 	if (camera != null) { // if a camera was supplied
-		cullRect.mPos.Copy(camera.mPos);
+		cullRect.mPos.Copy(camera.mPos); // set the culling rectangle's position to the camera's position
 		
-		if (camera.Type() == "Camera") {
+		if (camera.Type() == "Camera") { // if camera is NOT simple
 			camera.Clear(); // clear the camera's context
-			context = camera.mContext;
+			camContext = camera.mContext; // update the context reference
 			
-			cullRect.MakeRectangle(camera.mPos, camera.mSize);
+			cullRect.MakeRectangle(camera.mPos, camera.mSize); // remake the culling rect to be the size of the camera
 		}
 		
-		for (var i = 0; i < this.mRenderData.length; ++i) {
+		for (var i = 0; i < this.mRenderData.length; ++i) { // for all data to be rendered
 			if (this.mRenderData[i].mAbsolute == false) { // if the renderable is not absolute
-				context.save(); // save the current transformation
-				context.translate(-camera.mPos.mX, -camera.mPos.mY); // apply translation
+				camContext.save(); // save the current transformation
+				camContext.translate(-camera.mPos.mX, -camera.mPos.mY); // apply translation
 			}
 			
-			this.mRenderData[i].Render(context, this.mFrustrumCull, cullRect); // render the renderable to the camera's context
+			this.mRenderData[i].Render(camContext, this.mFrustrumCull, cullRect); // render the renderable to the camera's context
 			
 			if (this.mRenderData[i].mAbsolute == false) {
-				context.restore(); // restore the previous transformation
+				camContext.restore(); // restore the previous transformation
 			}
 		}
 		
 		if (camera.Type() == "Camera") {
-			camera.Render(targContext); // render the camera to the target context
+			camera.Render(targ); // render the camera to the target context
 		}
 	}
 	else { // otherwise no camera supplied
 		for (var i = 0; i < this.mRenderData.length; ++i) {
-			this.mRenderData[i].Render(targContext, this.mFrustrumCull, cullRect); // render straight to the target context
+			this.mRenderData[i].Render(targ, this.mFrustrumCull, cullRect); // render straight to the target context
 		}
 	}
 }

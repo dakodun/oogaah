@@ -152,7 +152,7 @@ RenderCanvas.prototype.RenderTo = function(renderable, camera) {
 			batch.Add(renderable[i]);
 		}
 		
-		batch.Render(camera, this.mCanvas);
+		batch.Render(camera, this.mContext);
 	}
 }
 // ...End
