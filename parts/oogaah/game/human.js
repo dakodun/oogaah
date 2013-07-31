@@ -266,14 +266,7 @@ OogaahHuman.prototype.SelectedControl = function() {
 		if (this.mHand.mCards[this.mCurrentHighlight].mCardAttack == "3" ||
 				this.mHand.mCards[this.mCurrentHighlight].mCardAttack == "C") {
 			
-			// reposition the cards value text (due to ability)
-			this.mHand.mCards[this.mCurrentHighlight].mValueText[2].SetPosition(new Vec2(
-					this.mHand.mCards[this.mCurrentHighlight].mValueText[2].mPos.mX,
-					this.mHand.mCards[this.mCurrentHighlight].mValueText[2].mPos.mY - 40));
-			
-			this.mHand.mCards[this.mCurrentHighlight].mValueText[1].SetPosition(new Vec2(
-					this.mHand.mCards[this.mCurrentHighlight].mValueText[1].mPos.mX,
-					this.mHand.mCards[this.mCurrentHighlight].mValueText[1].mPos.mY - 40));
+			this.mHand.mCards[this.mCurrentHighlight].PositionValueText();
 		}
 		
 		// reposition the highlight sprites
@@ -292,7 +285,8 @@ OogaahHuman.prototype.SelectedControl = function() {
 				for (var i = 0; i < this.mHand.mCards.length; ++i) { // for all cards in the hand
 					if (this.mSelectedCards[i] == 1) { // if card is selectable
 						// if card doesn't match this and isn't an S
-						if (this.mHand.mCards[i].mCardValue != this.mHand.mCards[this.mCurrentHighlight].mCardValue &&
+						if ((this.mHand.mCards[i].mCardAttack != this.mHand.mCards[this.mCurrentHighlight].mCardAttack ||
+								this.mHand.mCards[i].mCardValue != this.mHand.mCards[this.mCurrentHighlight].mCardValue) &&
 								this.mHand.mCards[i].mCardAttack != "S") {
 							
 							this.mSelectedCards[i] = 0; // card can no longer be selected
@@ -326,13 +320,7 @@ OogaahHuman.prototype.SelectedControl = function() {
 		if (this.mHand.mCards[this.mCurrentHighlight].mCardAttack == "3" ||
 				this.mHand.mCards[this.mCurrentHighlight].mCardAttack == "C") {
 			
-			this.mHand.mCards[this.mCurrentHighlight].mValueText[2].SetPosition(new Vec2(
-					this.mHand.mCards[this.mCurrentHighlight].mValueText[2].mPos.mX,
-					this.mHand.mCards[this.mCurrentHighlight].mValueText[2].mPos.mY + 40));
-			
-			this.mHand.mCards[this.mCurrentHighlight].mValueText[1].SetPosition(new Vec2(
-					this.mHand.mCards[this.mCurrentHighlight].mValueText[1].mPos.mX,
-					this.mHand.mCards[this.mCurrentHighlight].mValueText[1].mPos.mY + 40));
+			this.mHand.mCards[this.mCurrentHighlight].PositionValueText();
 		}
 		
 		// reposition the highlight sprites
