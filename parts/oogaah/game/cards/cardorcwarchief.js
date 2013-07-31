@@ -83,6 +83,15 @@ OogaahCardOrcWarchief.prototype.Play = function(cards) {
 						storedValue = card.mCardValue; // store the card value
 						index = i; // store the card's index
 					}
+					else if (card.mCardAttack == "S") {
+						if (card.mMimic != null) {
+							if (card.mMimic.mCardType == "Orc" && card.mMimic.mCardValue > storedValue) {
+								foundOrc = card; // store the card
+								storedValue = card.mCardValue; // store the card value
+								index = i; // store the card's index
+							}
+						}
+					}
 				}
 				
 				if (index >= 0) { // if the stored index is not negative
