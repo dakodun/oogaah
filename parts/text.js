@@ -34,7 +34,7 @@ function Text() {
 	this.mColour = "#FFFFFF"; // the colour of the text
 	
 	this.mShadow = false; // whether to render an offset shadow
-	this.mShadowAlpha = 255; // the alpha value of the shaod
+	this.mShadowAlpha = 1.0; // the alpha value of the shaod
 	this.mShadowColour = "#000000"; // the colour of the offset shadow
 	this.mShadowBlur = 0; // the amount for blur to apply to the shaodw
 	this.mShadowOffset = new Vec2(1, 1); // the shadow's offset in comparison to the text
