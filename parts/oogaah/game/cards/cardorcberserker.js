@@ -18,15 +18,35 @@ function OogaahCardOrcBerserker() {
 	for (var i = 0; i < this.mValueText.length; ++i) {
 		this.mValueText[i].SetFont(fnt);
 		
-		this.mValueText[i].mAlign = "right";
+		this.mValueText[i].mAlign = "centre";
 		this.mValueText[i].mAbsolute = true;
-		this.mValueText[i].mDepth = 0;
-		this.mValueText[i].mColour = "#FFFFFF";
+		this.mValueText[i].mColour = "#81BD1C";
+		
+		this.mValueText[i].mShadow = true;
+		this.mValueText[i].mShadowColour = "#498E1F";
 	}
 	
-	this.mValueText[0].SetFontSize(38);
-	this.mValueText[1].SetFontSize(22);
-	this.mValueText[2].SetFontSize(14);
+	this.mValueText[0].SetFontSize(82);
+	this.mValueText[1].SetFontSize(38);
+	this.mValueText[1].mShadowAlpha = 0.5;
+	this.mValueText[2].SetFontSize(22);
+	this.mValueText[2].mShadowAlpha = 0.3;
+	
+	this.mSplitShape = new Array();
+	
+	{
+		this.mSplitShape[0] = new Shape();
+		this.mSplitShape[0].MakeCircle(new Vec2(), 33, 24);
+		this.mSplitShape[0].mColour = "#501616";
+		
+		this.mSplitShape[1] = new Shape();
+		this.mSplitShape[1].MakeCircle(new Vec2(), 15, 24);
+		this.mSplitShape[1].mColour = "#501616";
+		
+		this.mSplitShape[2] = new Shape();
+		this.mSplitShape[2].MakeCircle(new Vec2(), 9, 24);
+		this.mSplitShape[2].mColour = "#501616";
+	}
 	
 	this.ModifyValue(0);
 	this.PositionValueText();
@@ -62,6 +82,10 @@ OogaahCardOrcBerserker.prototype.Copy = function(other) {
 	this.mValueText[0].Copy(other.mValueText[0]);
 	this.mValueText[1].Copy(other.mValueText[1]);
 	this.mValueText[2].Copy(other.mValueText[2]);
+	
+	this.mSplitShape[0].Copy(other.mSplitShape[0]);
+	this.mSplitShape[1].Copy(other.mSplitShape[1]);
+	this.mSplitShape[2].Copy(other.mSplitShape[2]);
 }
 
 OogaahCardOrcBerserker.prototype.GetCopy = function() {
@@ -77,6 +101,7 @@ OogaahCardOrcBerserker.prototype.GetRenderData = function() {
 		arr.push(this.mCardSprites[this.mSize]);
 		
 		if (this.mCardValue - 10 < 0) { // if the card attack has been modified due to ability
+			arr.push(this.mSplitShape[this.mSize]);
 			arr.push(this.mValueText[this.mSize]); // display the appropiate modification
 		}
 	}
@@ -168,28 +193,48 @@ OogaahCardOrcBerserker.prototype.ModifyValue = function(amount) {
 	this.mCardValue += amount; // change the card value by the amount
 	
 	for (var i = 0; i < this.mValueText.length; ++i) { // for all texts
-		this.mValueText[i].SetString("-" + (10 - this.mCardValue).toString()); // set the string to the new amount
+		this.mValueText[i].SetString(noogaah.IndexToAV(this.mCardValue - 1)); // set the string to the new amount
 	}
 }
 
 // 
 OogaahCardOrcBerserker.prototype.PositionValueText = function() {
 	var lrgSpr = this.mCardSprites[0];
-	this.mValueText[0].SetPosition(new Vec2(Math.round(nmain.game.mCanvasSize.mX / 3) + Math.round(lrgSpr.mSize.mX / 2) - 14,
-			Math.round(nmain.game.mCanvasSize.mY / 2) + Math.round(lrgSpr.mSize.mY / 2) - 108));
+	this.mValueText[0].SetPosition(new Vec2(Math.round(nmain.game.mCanvasSize.mX / 3) + Math.round(lrgSpr.mSize.mX / 2) - 59,
+			Math.round(nmain.game.mCanvasSize.mY / 2) + Math.round(lrgSpr.mSize.mY / 2) - 93));
 	this.mValueText[0].mDepth = lrgSpr.mDepth;
 	
 	var medSpr = this.mCardSprites[1];
 	var medPos = new Vec2(); medPos.Copy(medSpr.mPos);
 	medPos.mX -= medSpr.mOrigin.mX; medPos.mY -= medSpr.mOrigin.mY;
-	this.mValueText[1].SetPosition(new Vec2(medPos.mX + medSpr.mSize.mX - 4, medPos.mY + medSpr.mSize.mY - 52));
+	this.mValueText[1].SetPosition(new Vec2(medPos.mX + medSpr.mSize.mX - 26, medPos.mY + medSpr.mSize.mY - 42));
 	this.mValueText[1].mDepth = medSpr.mDepth;
 	
 	var smlSpr = this.mCardSprites[2];
 	var smlPos = new Vec2(); smlPos.Copy(smlSpr.mPos);
 	smlPos.mX -= smlSpr.mOrigin.mX; smlPos.mY -= smlSpr.mOrigin.mY;
-	this.mValueText[2].SetPosition(new Vec2(smlPos.mX + smlSpr.mSize.mX - 2, smlPos.mY + smlSpr.mSize.mY - 32));
+	this.mValueText[2].SetPosition(new Vec2(smlPos.mX + smlSpr.mSize.mX - 15, smlPos.mY + smlSpr.mSize.mY - 25));
 	this.mValueText[2].mDepth = smlSpr.mDepth;
+	
+	for (var i = 0; i < this.mCardSprites.length; ++i) {
+		this.mSplitShape[i].SetPosition(new Vec2(this.mCardSprites[i].mPos.mX + this.mCardSprites[i].mSize.mX,
+				this.mCardSprites[i].mPos.mY + this.mCardSprites[i].mSize.mY));
+		this.mSplitShape[i].SetOrigin(this.mCardSprites[i].mOrigin);
+	}
+	
+	{
+		var ss0 = this.mSplitShape[0];
+		ss0.SetPosition(new Vec2(ss0.mPos.mX - 56, ss0.mPos.mY - 40));
+		ss0.mDepth = lrgSpr.mDepth;
+		
+		var ss1 = this.mSplitShape[1];
+		ss1.SetPosition(new Vec2(ss1.mPos.mX - 26, ss1.mPos.mY - 18));
+		ss1.mDepth = medSpr.mDepth;
+		
+		var ss2 = this.mSplitShape[2];
+		ss2.SetPosition(new Vec2(ss2.mPos.mX - 15, ss2.mPos.mY - 10));
+		ss2.mDepth = smlSpr.mDepth;
+	}
 }
 // ...End
 
