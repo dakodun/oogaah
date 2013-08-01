@@ -51,6 +51,13 @@ OogaahGraveyard.prototype.AddCard = function(card) {
 	this.HandlePeasant(c, 1);
 	this.mCards.push(c); // add it to the cards array
 	
+	{
+		if (this.mCards.length == 2) { // if we now have more than 1 card in the graveyard
+			this.mCard.mCardBacks[1].SetPosition(new Vec2(254, 206));
+			this.mCard.mCardBacks[2].SetPosition(new Vec2(254, 206));
+		}
+	}
+	
 	{ // handle viewing cards
 		var found = false; // did we find a matching card in the viewing cards array
 		var id = -1; // the id of the matching card array OR the closest card array past it
@@ -161,6 +168,13 @@ OogaahGraveyard.prototype.RemoveCard = function(id) {
 		this.HandlePeasant(this.mCards[id], -1);
 		this.mCards.splice(id, 1); // remove the card from the array
 		
+		{
+			if (this.mCards.length == 1) { // if we now have more than 1 card in the graveyard
+				this.mCard.mCardBacks[1].SetPosition(new Vec2(256, 208));
+				this.mCard.mCardBacks[2].SetPosition(new Vec2(256, 208));
+			}
+		}
+		
 		{ // handle viewing cards
 			var index = 0; // the index of the card array which held the card we removed
 			for (var i = 0; i < this.mViewCards.length; ++i) { // for all card arrays in the viewing cards array
@@ -248,13 +262,13 @@ OogaahGraveyard.prototype.SetUp = function() {
 		
 		// set up medium bundle sprite
 		this.mBundleSprites[1].SetTexture(texBundleMedium);
-		this.mBundleSprites[1].SetPosition(new Vec2(256, 208));
+		this.mBundleSprites[1].SetPosition(new Vec2(254, 206));
 		this.mBundleSprites[1].SetOrigin(new Vec2(Math.round(this.mBundleSprites[1].GetSize().mX / 2),
 				Math.round(this.mBundleSprites[1].GetSize().mY / 2)));
 		
 		// set up small bundle sprite
 		this.mBundleSprites[2].SetTexture(texBundleSmall);
-		this.mBundleSprites[2].SetPosition(new Vec2(256, 208));
+		this.mBundleSprites[2].SetPosition(new Vec2(254, 206));
 		this.mBundleSprites[2].SetOrigin(new Vec2(Math.round(this.mBundleSprites[2].GetSize().mX / 2),
 				Math.round(this.mBundleSprites[2].GetSize().mY / 2)));
 	}

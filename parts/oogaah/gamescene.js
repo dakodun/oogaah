@@ -7,7 +7,8 @@ function OogaahGameScene() {
 	this.mBatch = new RenderBatch(); // the main render batch
 	this.mRand = new RNG(); // the random number generator
 	
-	this.mBackColour = new Shape();
+	// this.mBackColour = new Shape();
+	this.mGameBack = new Sprite();
 	
 	this.mCardList = new Array(); // array containing a list of the available cards
 	this.mDeck = new Array(); // the deck containing all of the cards required for a game
@@ -53,13 +54,18 @@ OogaahGameScene.prototype.SetUp = function() {
 	this.mBatch.mFrustrumCull = false;
 	
 	{
-		this.mBackColour.mPos.Set(2, 2);
+		/* this.mBackColour.mPos.Set(2, 2);
 		this.mBackColour.AddPoint(new Vec2(636,   0));
 		this.mBackColour.AddPoint(new Vec2(636, 476));
 		this.mBackColour.AddPoint(new Vec2(  0, 476));
 		this.mBackColour.mAbsolute = true;
 		this.mBackColour.mDepth = 99999;
-		this.mBackColour.mColour = "#35251C";
+		this.mBackColour.mColour = "#35251C"; */
+		
+		var tex = nmgrs.resMan.mTexStore.GetResource("gameBack");
+		this.mGameBack.SetTexture(tex);
+		this.mGameBack.SetPosition(new Vec2(2, 2));
+		this.mGameBack.mDepth = 99999;
 	}
 	
 	this.CreateCardList();
@@ -225,7 +231,8 @@ OogaahGameScene.prototype.Render = function() {
 	
 	var arr = new Array();
 	
-	arr.push(this.mBackColour);
+	// arr.push(this.mBackColour);
+	arr.push(this.mGameBack);
 	
 	arr = util.ConcatArray(arr, this.mLog.GetRenderData()); // render the play log
 	
