@@ -36,41 +36,7 @@ OogaahBattlefield.prototype.AddCard = function(card) {
 	}
 	else if (c.mCardAttack == "S") {
 		if (c.mMimic != null) {
-			// medium
-			c.mSplitShape[1].SetOrigin(new Vec2(Math.round(medSpr.mSize.mX / 2), Math.round(medSpr.mSize.mY / 2)));
-			c.mSplitShape[1].SetPosition(new Vec2(pos.mX + medSpr.mSize.mX, pos.mY));
-			c.mSplitShape[1].mDepth = medSpr.mDepth;
-			
-			c.mSplitShapeLine[1].SetOrigin(new Vec2(Math.round(medSpr.mSize.mX / 2), Math.round(medSpr.mSize.mY / 2)));
-			c.mSplitShapeLine[1].SetPosition(new Vec2(pos.mX, pos.mY + medSpr.mSize.mY));
-			c.mSplitShapeLine[1].mDepth = medSpr.mDepth;
-			
-			var mimicMed = c.mMimic.mCardSprites[1];
-			mimicMed.SetRotation(0);
-			mimicMed.SetPosition(new Vec2(-medSpr.mSize.mX, 0));
-			mimicMed.SetOrigin(new Vec2());
-			mimicMed.mDepth = medSpr.mDepth; 
-			c.mSplitShape[1].mSprite = mimicMed;
-			
-			// small
-			c.mSplitShape[2].SetOrigin(new Vec2(Math.round(smlSpr.mSize.mX / 2), Math.round(smlSpr.mSize.mY / 2)));
-			c.mSplitShape[2].SetPosition(new Vec2(pos.mX + smlSpr.mSize.mX, pos.mY));
-			c.mSplitShape[2].mDepth = smlSpr.mDepth;
-			
-			c.mSplitShapeLine[2].SetOrigin(new Vec2(Math.round(smlSpr.mSize.mX / 2), Math.round(smlSpr.mSize.mY / 2)));
-			c.mSplitShapeLine[2].SetPosition(new Vec2(pos.mX, pos.mY + smlSpr.mSize.mY));
-			c.mSplitShapeLine[2].mDepth = smlSpr.mDepth;
-			
-			var mimicSml = c.mMimic.mCardSprites[2];
-			mimicSml.SetRotation(0);
-			mimicSml.SetPosition(new Vec2(-smlSpr.mSize.mX, 0));
-			mimicSml.SetOrigin(new Vec2());
-			mimicSml.mDepth = smlSpr.mDepth; 
-			c.mSplitShape[2].mSprite = mimicSml;
-			
-			if (c.mMimic.mCardAttack == "3" || c.mMimic.mCardAttack == "C") {
-				c.PositionValueText();
-			}
+			c.PositionClip();
 		}
 	}
 	

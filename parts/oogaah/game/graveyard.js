@@ -20,7 +20,7 @@ function OogaahGraveyard() {
 	this.mBundleSprites[2] = new Sprite();
 	
 	this.mSize = 2; // the current render size of the graveyard
-	this.m3 = false; // is the graveyard currently selectable
+	this.mSelectable = false; // is the graveyard currently selectable
 	
 	this.mView = false;
 	this.mViewShape = new Shape();
@@ -48,70 +48,7 @@ OogaahGraveyard.prototype.AddCard = function(card) {
 	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
 	var c = card.GetCopy(); // get a copy of the card
 	
-	{ // handle human peasant ability (which activates when a human knight enters the graveyard)
-		var knight = false; // was it a knight that was added
-		var peasant = false; // was it a peasant that was added
-		
-		if (c.mCardAttack == "9") { // if the card is a "9" (knight)
-			knight = true; // it was a knight
-		}
-		else if (c.mCardAttack == "S") { // otherwise if the card is an "S" (being of light)
-			if (c.mMimic != null) { // if being of light was played using its ability
-				if (c.mMimic.mCardAttack == "9") { // if the card was played as a knight
-					knight = true; // it was a knight
-				}
-			}
-		}
-		else if (c.mCardAttack == "3") { // if the card is a "3" (peasant)
-			peasant = true; // it was a peasant
-		}
-		
-		if (knight == true) { // if it was a knight that was added
-			for (var i = 0; i < currScene.mPlayers.length; ++i) { // for all players
-				var hand = currScene.mPlayers[i].mHand; // reference to current hand
-				for (var j = 0; j < hand.mCards.length; ++j) { // for all cards in the hand
-					if (hand.mCards[j].mCardAttack == "3") { // if the card is a "3" (human peasant)
-						hand.mCards[j].ModifyValue(1); // update the card's value
-					}
-				}
-				
-				currScene.mPlayers[i].PositionHand();
-			}
-			
-			for (var i = 0; i < this.mViewCards.length; ++i) {
-				for (var j = 0; j < this.mViewCards[i].length; ++j) {
-					if (this.mViewCards[i][j].mCard.mCardAttack == "3") { // if the card is a "3" (peasant)
-						this.mViewCards[i][j].mCard.ModifyValue(1);
-						this.mViewCards[i][j].mCard.PositionValueText();
-						
-						this.mCards[this.mViewCards[i][j].mIndex].ModifyValue(1);
-						this.mCards[this.mViewCards[i][j].mIndex].PositionValueText();
-					}
-				}
-			}
-		}
-		else if (peasant == true) { // if it was a peasant that was added
-			var knights = 0;
-			
-			for (var i = 0; i < this.mCards.length; ++i) {
-				if (this.mCards[i].mCardAttack == "9") { // if the card is a "9" (knight)
-					++knights;
-				}
-				else if (this.mCards[i].mCardAttack == "S") { // otherwise if the card is an "S" (being of light)
-					if (this.mCards[i].mMimic != null) { // if being of light was played using its ability
-						if (this.mCards[i].mMimic.mCardAttack == "9") { // if the card was played as a knight
-							++knights;
-						}
-					}
-				}
-			}
-			
-			c.mCardValue = 3;
-			c.ModifyValue(knights);
-			c.PositionValueText();
-		}
-	}
-	
+	this.HandlePeasant(c, 1);
 	this.mCards.push(c); // add it to the cards array
 	
 	{ // handle viewing cards
@@ -127,12 +64,19 @@ OogaahGraveyard.prototype.AddCard = function(card) {
 				}
 			}
 			
-			if (cardOther.mCardAttack == attack) { // if the attacks match
+			var otherAttack = cardOther.mCardAttack;
+			if (otherAttack == "S") {
+				if (cardOther.mMimic != null) {
+					otherAttack = cardOther.mMimic.mCardAttack;
+				}
+			}
+			
+			if (otherAttack == attack) { // if the attacks match
 				id = i; // set the id to this index
 				found = true; // we found a match
 				break; // stop looking
 			}
-			else if (noogaah.AVToIndex(cardOther.mCardAttack) > noogaah.AVToIndex(attack)) { // ordered, so if greater then doesn't exist
+			else if (noogaah.AVToIndex(otherAttack) > noogaah.AVToIndex(attack)) { // ordered, so if greater then doesn't exist
 				id = i; // set the id to this index
 				break; // stop looking
 			}
@@ -161,41 +105,7 @@ OogaahGraveyard.prototype.AddCard = function(card) {
 			}
 			else if (cardNew.mCardAttack == "S") {
 				if (cardNew.mMimic != null) {
-					// medium
-					cardNew.mSplitShape[1].SetOrigin(new Vec2(0, cardNew.mCardSprites[1].mSize.mY));
-					cardNew.mSplitShape[1].SetPosition(new Vec2(220 + cardNew.mCardSprites[1].mSize.mX, 259));
-					cardNew.mSplitShape[1].mDepth = cardNew.mCardSprites[1].mDepth;
-					
-					cardNew.mSplitShapeLine[1].SetOrigin(new Vec2(0, cardNew.mCardSprites[1].mSize.mY));
-					cardNew.mSplitShapeLine[1].SetPosition(new Vec2(220, 259 + cardNew.mCardSprites[1].mSize.mY));
-					cardNew.mSplitShapeLine[1].mDepth = cardNew.mCardSprites[1].mDepth;
-					
-					var mimicMed = cardNew.mMimic.mCardSprites[1];
-					mimicMed.SetRotation(0);
-					mimicMed.SetPosition(new Vec2(-cardNew.mCardSprites[1].mSize.mX, 0));
-					mimicMed.SetOrigin(new Vec2());
-					mimicMed.mDepth = cardNew.mCardSprites[1].mDepth;
-					cardNew.mSplitShape[1].mSprite = mimicMed;
-					
-					// small
-					cardNew.mSplitShape[2].SetOrigin(new Vec2(0, cardNew.mCardSprites[2].mSize.mY));
-					cardNew.mSplitShape[2].SetPosition(new Vec2(220 + cardNew.mCardSprites[2].mSize.mX, 259));
-					cardNew.mSplitShape[2].mDepth = cardNew.mCardSprites[2].mDepth;
-					
-					cardNew.mSplitShapeLine[2].SetOrigin(new Vec2(0, cardNew.mCardSprites[2].mSize.mY));
-					cardNew.mSplitShapeLine[2].SetPosition(new Vec2(220, 259 + cardNew.mCardSprites[2].mSize.mY));
-					cardNew.mSplitShapeLine[2].mDepth = cardNew.mCardSprites[2].mDepth;
-					
-					var mimicSml = cardNew.mMimic.mCardSprites[2];
-					mimicSml.SetRotation(0);
-					mimicSml.SetPosition(new Vec2(-cardNew.mCardSprites[2].mSize.mX, 0));
-					mimicSml.SetOrigin(new Vec2());
-					mimicSml.mDepth = cardNew.mCardSprites[2].mDepth;
-					cardNew.mSplitShape[2].mSprite = mimicSml;
-					
-					if (cardNew.mMimic.mCardAttack == "3" || cardNew.mMimic.mCardAttack == "C") {
-						cardNew.PositionValueText();
-					}
+					cardNew.PositionClip();
 				}
 			}
 			
@@ -221,21 +131,7 @@ OogaahGraveyard.prototype.AddCard = function(card) {
 				}
 				else if (this.mViewCards[id][i].mCard.mCardAttack == "S") {
 					if (this.mViewCards[id][i].mCard.mMimic != null) {
-						// medium
-						this.mViewCards[id][i].mCard.mSplitShape[1].SetPosition(new Vec2(pos.mX +
-								this.mViewCards[id][i].mCard.mCardSprites[1].mSize.mX, pos.mY));
-						this.mViewCards[id][i].mCard.mSplitShapeLine[1].SetPosition(new Vec2(pos.mX,
-								pos.mY + this.mViewCards[id][i].mCard.mCardSprites[1].mSize.mY));
-						
-						// small
-						this.mViewCards[id][i].mCard.mSplitShape[2].SetPosition(new Vec2(pos.mX +
-								this.mViewCards[id][i].mCard.mCardSprites[2].mSize.mX, pos.mY));
-						this.mViewCards[id][i].mCard.mSplitShapeLine[2].SetPosition(new Vec2(pos.mX,
-								pos.mY + this.mViewCards[id][i].mCard.mCardSprites[2].mSize.mY));
-						
-						if (this.mViewCards[id][i].mCard.mMimic.mCardAttack == "3" || this.mViewCards[id][i].mCard.mMimic.mCardAttack == "C") {
-							this.mViewCards[id][i].mCard.PositionValueText();
-						}
+						this.mViewCards[id][i].mCard.PositionClip();
 					}	
 				}
 				
@@ -262,45 +158,7 @@ OogaahGraveyard.prototype.RemoveCard = function(id) {
 	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
 	
 	if (id >= 0 && id < this.mCards.length) { // if card id is valid
-		{ // handle human peasant ability (which activates when a human knight leaves the graveyard)
-			var knight = false;
-			if (this.mCards[id].mCardAttack == "9") { // if the card is a "9" (knight)
-				knight = true; // it was a knight
-			}
-			else if (this.mCards[id].mCardAttack == "S") { // otherwise if the card is an "S" (being of light)
-				if (this.mCards[id].mMimic != null) { // if being of light was played using its ability
-					if (this.mCards[id].mMimic.mCardAttack == "9") { // if the card was played as a knight
-						knight = true; // it was a knight
-					}
-				}
-			}
-			
-			if (knight == true) { // if it was a knight that was added
-				for (var i = 0; i < currScene.mPlayers.length; ++i) { // for all players
-					var hand = currScene.mPlayers[i].mHand; // reference to current hand
-					for (var j = 0; j < hand.mCards.length; ++j) { // for all cards in the hand
-						if (hand.mCards[j].mCardAttack == "3") { // if the card is a "3" (human peasant)
-							hand.mCards[j].ModifyValue(-1); // update the card's value
-						}
-					}
-					
-					currScene.mPlayers[i].PositionHand();
-				}
-				
-				for (var i = 0; i < this.mViewCards.length; ++i) {
-					for (var j = 0; j < this.mViewCards[i].length; ++j) {
-						if (this.mViewCards[i][j].mCard.mCardAttack == "3") { // if the card is a "3" (peasant)
-							this.mViewCards[i][j].mCard.ModifyValue(-1);
-							this.mViewCards[i][j].mCard.PositionValueText();
-							
-							this.mCards[this.mViewCards[i][j].mIndex].ModifyValue(-1);
-							this.mCards[this.mViewCards[i][j].mIndex].PositionValueText();
-						}
-					}
-				}
-			}
-		}
-		
+		this.HandlePeasant(this.mCards[id], -1);
 		this.mCards.splice(id, 1); // remove the card from the array
 		
 		{ // handle viewing cards
@@ -342,21 +200,7 @@ OogaahGraveyard.prototype.RemoveCard = function(id) {
 					}
 					else if (this.mViewCards[index][i].mCard.mCardAttack == "S") {
 						if (this.mViewCards[index][i].mCard.mMimic != null) {
-							// medium
-							this.mViewCards[index][i].mCard.mSplitShape[1].SetPosition(new Vec2(pos.mX +
-									this.mViewCards[index][i].mCard.mCardSprites[1].mSize.mX, pos.mY));
-							this.mViewCards[index][i].mCard.mSplitShapeLine[1].SetPosition(new Vec2(pos.mX,
-									pos.mY + this.mViewCards[index][i].mCard.mCardSprites[1].mSize.mY));
-							
-							// small
-							this.mViewCards[index][i].mCard.mSplitShape[2].SetPosition(new Vec2(pos.mX +
-									this.mViewCards[index][i].mCard.mCardSprites[2].mSize.mX, pos.mY));
-							this.mViewCards[index][i].mCard.mSplitShapeLine[2].SetPosition(new Vec2(pos.mX,
-									pos.mY + this.mViewCards[index][i].mCard.mCardSprites[2].mSize.mY));
-							
-							if (this.mViewCards[index][i].mCard.mMimic.mCardAttack == "3" || this.mViewCards[index][i].mCard.mMimic.mCardAttack == "C") {
-								this.mViewCards[index][i].mCard.PositionValueText();
-							}
+							this.mViewCards[index][i].mCard.PositionClip();
 						}	
 					}
 					
@@ -570,6 +414,96 @@ OogaahGraveyard.prototype.SetView = function(view) {
 	if (view != this.mView) {
 		this.mView = view;
 		this.mViewIndex = 0;
+	}
+}
+
+OogaahGraveyard.prototype.HandlePeasant = function(card, action) {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to current scene
+	
+	{
+		var attack = card.mCardAttack; // store the card's attack
+		if (card.mCardAttack == "S") { // if the card is a being of energy
+			if (card.mMimic != null) {
+				attack = card.mMimic.mCardAttack;
+			}
+		}
+		
+		if (attack == "9") { // human knight
+			{ // handle player's hands
+				for (var i = 0; i < currScene.mPlayers.length; ++i) { // for all players
+					var hand = currScene.mPlayers[i].mHand; // store reference to player's hand
+					for (var j = 0; j < hand.mCards.length; ++j) { // for all cards in hand
+						if (hand.mCards[j].mCardAttack == "3") { // if card is a human peasant
+							hand.mCards[j].ModifyValue(action); // add 1 to value
+							hand.mCards[j].PositionValueText(); // reposition
+						}
+					}
+				}
+			}
+			
+			{ // handle the graveyard
+				for (var i = 0; i < this.mCards.length; ++i) { // for all cards in graveyard
+					if (this.mCards[i].mCardAttack == "3") { // if card is a human peasant
+						this.mCards[i].ModifyValue(action); // add 1 to value
+						this.mCards[i].PositionValueText(); // reposition
+					}
+					else if (this.mCards[i].mCardAttack == "S") { // if card is a being of energy
+						if (this.mCards[i].mMimic != null) { // and was played using its ability
+							if (this.mCards[i].mMimic.mCardAttack == "3") { // and was played as a human peasant
+								this.mCards[i].mMimic.ModifyValue(action); // add 1 to value
+								this.mCards[i].PositionValueText(); // reposition
+							}
+						}
+					}
+				}
+				
+				for (var i = 0; i < this.mViewCards.length; ++i) {
+					for (var j = 0; j < this.mViewCards[i].length; ++j) {
+						if (this.mViewCards[i][j].mCard.mCardAttack == "3") { // if card is a human peasant
+							this.mViewCards[i][j].mCard.ModifyValue(action); // add 1 to value
+							this.mViewCards[i][j].mCard.PositionValueText(); // reposition
+						}
+						else if (this.mViewCards[i][j].mCard.mCardAttack == "S") { // if card is a being of energy
+							if (this.mViewCards[i][j].mCard.mMimic != null) { // and was played using its ability
+								if (this.mViewCards[i][j].mCard.mMimic.mCardAttack == "3") { // and was played as a human peasant
+									this.mViewCards[i][j].mCard.mMimic.ModifyValue(action); // add 1 to value
+									this.mViewCards[i][j].mCard.PositionValueText(); // reposition
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		else if (attack == "3") { // adding a human peasant
+			if (action == 1) {
+				var knights = 0;
+				
+				for (var i = 0; i < this.mCards.length; ++i) { // for all cards in graveyard
+					if (this.mCards[i].mCardAttack == "9") { // if card is a human knight
+						++knights;
+					}
+					else if (this.mCards[i].mCardAttack == "S") { // if card is a being of energy
+						if (this.mCards[i].mMimic != null) { // and was played using its ability
+							if (this.mCards[i].mMimic.mCardAttack == "9") { // and was played as a human knight
+								++knights;
+							}
+						}
+					}
+				}
+				
+				if (card.mCardAttack == "3") { // if card is a peasant
+					card.mCardValue = 3; // reset value to default
+					card.ModifyValue(knights);
+					card.PositionValueText();
+				}
+				else if (card.mCardAttack == "S") { // otherwise if card is a being of energy
+					card.mMimic.mCardValue = 3; // reset value to default
+					card.mMimic.ModifyValue(knights);
+					card.PositionValueText();
+				}
+			}
+		}
 	}
 }
 // ...End
