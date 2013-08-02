@@ -38,7 +38,6 @@ var util = new function() {
 	this.PointInConvex = function(point, polygon) {
 		if (polygon.length > 2) { // if there as at least 3 points in the polygon (triangle)
 			var pt = new Vec2(0, 0); pt.Copy(point);
-			pt.mX -= 3; pt.mY -= 3;
 			
 			// copy the polygon to an array and add the first point to the end for looping
 			var poly = new Array();
