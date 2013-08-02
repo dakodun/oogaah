@@ -145,17 +145,15 @@ RenderCanvas.prototype.Clear = function() {
 }
 
 RenderCanvas.prototype.RenderTo = function(renderable, camera) {
-	{
-		var batch = new RenderBatch();
-		batch.mFrustrumCull = this.mFrustrumCull;
-		batch.Clear();
-		
-		for (var i = 0; i < renderable.length; ++i) {
-			batch.Add(renderable[i]);
-		}
-		
-		batch.Render(camera, this.mContext);
+	var batch = new RenderBatch();
+	batch.mFrustrumCull = this.mFrustrumCull;
+	batch.Clear();
+	
+	for (var i = 0; i < renderable.length; ++i) {
+		batch.Add(renderable[i]);
 	}
+	
+	batch.Render(camera, this.mContext);
 }
 // ...End
 
