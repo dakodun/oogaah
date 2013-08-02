@@ -8,7 +8,7 @@ function OogaahMenuScene() {
 	this.mBackColour = new Shape();
 	this.mMenuControl = new OogaahMenuControl();
 	
-	this.mCardBack = new Sprite();
+	this.mLogo = new Sprite();
 };
 
 // returns the type of this object for validity checking
@@ -18,7 +18,7 @@ OogaahMenuScene.prototype.Type = function() {
 
 // initialises the scene object
 OogaahMenuScene.prototype.SetUp = function() {
-	nmain.game.mClearColour = "#FFFFFF";
+	nmain.game.mClearColour = "#FAF1CE";
 	
 	{
 		this.mBackColour.SetPosition(new Vec2(2, 2));
@@ -32,10 +32,9 @@ OogaahMenuScene.prototype.SetUp = function() {
 	
 	this.mMenuControl.SetUp();
 	
-	var tex = nmgrs.resMan.mTexStore.GetResource("cardBackLarge");
-	this.mCardBack.SetTexture(tex);
-	this.mCardBack.SetPosition(new Vec2(Math.round(nmain.game.mCanvasSize.mX / 2), 20));
-	this.mCardBack.SetOrigin(new Vec2(Math.round(this.mCardBack.GetSize().mX / 2), 0));
+	var tex = nmgrs.resMan.mTexStore.GetResource("menuLogo");
+	this.mLogo.SetTexture(tex);
+	this.mLogo.SetPosition(new Vec2(10, 10));
 }
 
 // cleans up the scene object
@@ -61,8 +60,9 @@ OogaahMenuScene.prototype.Render = function() {
 	var arr = new Array();
 	
 	arr.push(this.mBackColour);
+	arr.push(this.mLogo);
+	
 	arr = util.ConcatArray(arr, this.mMenuControl.GetRenderData());
-	arr.push(this.mCardBack);
 	
 	for (var i = 0; i < arr.length; ++i) {
 		this.mBatch.Add(arr[i]);
