@@ -12,20 +12,23 @@ function OogaahMenuControl() {
 	this.mMenuOptionText[2] = new RenderCanvas();
 	
 	this.mCurrentOption = -1;
+	
+	this.mFinished = false;
 };
 
 OogaahMenuControl.prototype.SetUp = function() {
 	{
 		var yOff = 460;
+		var xSize = 80;
+		
 		for (var i = 0; i < this.mMenuOptionBack.length; ++i) {
-			this.mMenuOptionBack[i].MakeRectangle(new Vec2(-80, yOff), new Vec2(nmain.game.mCanvasSize.mX + 160, 32));
+			this.mMenuOptionBack[i].MakeRectangle(new Vec2(-80, yOff), new Vec2(xSize, 32));
 			this.mMenuOptionBack[i].SetSkew(new Vec2(15, 0));
 			this.mMenuOptionBack[i].mColour = "#FAF1CE";
 			this.mMenuOptionBack[i].mAlpha = 0.5;
 			
-			this.mMenuOptionBack[i].SetMask();
-			
 			yOff += 40;
+			xSize -= 64;
 		}
 	}
 	
@@ -60,6 +63,8 @@ OogaahMenuControl.prototype.SetUp = function() {
 			this.mMenuOptionText[i].SetOrigin(new Vec2(320, 0));
 			this.mMenuOptionText[i].SetSkew(new Vec2(15, 0));
 			
+			this.mMenuOptionText[i].mAlpha = 0.0;
+			
 			yOff += 40;
 		}
 	}
@@ -84,24 +89,70 @@ OogaahMenuControl.prototype.Input = function() {
 
 // handles game logic
 OogaahMenuControl.prototype.Process = function() {
-	this.mCurrentOption = -1;
-	var found = false;
-	
-	for (var i = 0; i < this.mMenuOptionBack.length; ++i) {
-		this.mMenuOptionBack[i].mAlpha = 0.5;
-		this.mMenuOptionText[i].SetScale(new Vec2(1.0, 1.0));
+	if (this.mFinished == true) { // if menu has fully loaded
+		this.mCurrentOption = -1;
+		var found = false;
 		
-		var p = new Vec2(); p.Copy(nmgrs.inputMan.GetLocalMouseCoords());
-		
-		var polygon = this.mMenuOptionBack[i].mGlobalMask.GetAbsolute();
-		
-		if (util.PointInConvex(p, polygon) == true && found == false &&
-				nmgrs.inputMan.GetMouseInCanvas() == true) {
+		for (var i = 0; i < this.mMenuOptionBack.length; ++i) {
+			this.mMenuOptionBack[i].mAlpha = 0.5;
+			this.mMenuOptionText[i].SetScale(new Vec2(1.0, 1.0));
 			
-			this.mCurrentOption = i;
-			this.mMenuOptionBack[i].mAlpha = 1;
-			this.mMenuOptionText[i].SetScale(new Vec2(1.2, 1.0));
-			found = true;
+			var p = new Vec2(); p.Copy(nmgrs.inputMan.GetLocalMouseCoords());
+			
+			var polygon = this.mMenuOptionBack[i].mGlobalMask.GetAbsolute();
+			
+			if (util.PointInConvex(p, polygon) == true && found == false &&
+					nmgrs.inputMan.GetMouseInCanvas() == true) {
+				
+				this.mCurrentOption = i;
+				this.mMenuOptionBack[i].mAlpha = 1;
+				this.mMenuOptionText[i].SetScale(new Vec2(1.2, 1.0));
+				found = true;
+			}
+		}
+	}
+	else { // otherwise we're still loading menu
+		// if the first menu option back shape has not yet fully animated
+		if (this.mMenuOptionBack[0].mPoints[0].mX < nmain.game.mCanvasSize.mX + 160) {
+			var shp = this.mMenuOptionBack[0]; // reference the back shape
+			shp.MakeRectangle(shp.mPos, new Vec2(shp.mSize.mX + 16, shp.mSize.mY)); // increase the length of the shape
+		}
+		else { // otherwise it has fully loaded
+			if (this.mMenuOptionText[0].mAlpha < 1.0) { // if the text is not yet fully opaque
+				this.mMenuOptionText[0].mAlpha += 0.1; // increase the alpha value
+			}
+			else { // otherwise text is fully opaque
+				this.mMenuOptionBack[0].SetMask(); // so set the collision mask (for user interaction)
+			}
+		}
+		
+		// as above
+		if (this.mMenuOptionBack[1].mPoints[0].mX < nmain.game.mCanvasSize.mX + 160) {
+			var shp = this.mMenuOptionBack[1];
+			shp.MakeRectangle(shp.mPos, new Vec2(shp.mSize.mX + 16, shp.mSize.mY));
+		}
+		else {
+			if (this.mMenuOptionText[1].mAlpha < 1.0) {
+				this.mMenuOptionText[1].mAlpha += 0.1;
+			}
+			else {
+				this.mMenuOptionBack[1].SetMask();
+			}
+		}
+		
+		// as above
+		if (this.mMenuOptionBack[2].mPoints[0].mX < nmain.game.mCanvasSize.mX + 160) {
+			var shp = this.mMenuOptionBack[2];
+			shp.MakeRectangle(shp.mPos, new Vec2(shp.mSize.mX + 16, shp.mSize.mY));
+		}
+		else {
+			if (this.mMenuOptionText[2].mAlpha < 1.0) {
+				this.mMenuOptionText[2].mAlpha += 0.1;
+			}
+			else {
+				this.mMenuOptionBack[2].SetMask();
+				this.mFinished = true; // once last shape is fully loaded, we are done
+			}
 		}
 	}
 }
