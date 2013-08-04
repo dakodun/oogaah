@@ -44,6 +44,9 @@ InitScene.prototype.SetUp = function() {
 		nmgrs.resLoad.QueueTexture("statusSSBack", "./res/vis/ui/statusSSBack.png");
 		nmgrs.resLoad.QueueTexture("statusIcons", "./res/vis/ui/statusIcons.png");
 		
+		nmgrs.resLoad.QueueTexture("menuLogo", "./res/vis/menuLogo.png");
+		nmgrs.resLoad.QueueTexture("gameBack", "./res/vis/back.png");
+		
 		nmgrs.resLoad.AcquireResources();
 		nmgrs.resLoad.mIntervalID = setInterval(function() {nmgrs.resLoad.ProgressCheck();}, 0);
 	} catch(e) {
@@ -67,6 +70,7 @@ InitScene.prototype.Process = function() {
 		noogaah.options.LoadOptions();
 		
 		nmgrs.sceneMan.RequestSceneChange(new OogaahMenuScene());
+		// nmgrs.sceneMan.RequestSceneChange(new OogaahTestScene());
 	}
 }
 

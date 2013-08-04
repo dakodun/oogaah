@@ -254,6 +254,38 @@ Matrix3.prototype.Scale = function(scale) {
 	
 	this.Multiply(m);
 }
+
+// skews the matrix by multiplying it with the skewing matrix
+Matrix3.prototype.Skew = function(skew) {
+	var angleRad = skew.GetCopy();
+	
+	// the tangent shouldn't exceed 90 is either direction
+	if (angleRad.mX >= 90) {
+		angleRad.mX = 89;
+	}
+	else if (angleRad.mX <= -90) {
+		angleRad.mX = -89;
+	}
+	
+	// boundary check for y
+	if (angleRad.mY >= 90) {
+		angleRad.mY = 89;
+	}
+	else if (angleRad.mY <= -90) {
+		angleRad.mY = -89;
+	}
+	
+	// convert to radians
+	angleRad.mX = (angleRad.mX * (Math.PI / 180));
+	angleRad.mY = (angleRad.mY * (Math.PI / 180));
+	
+	var m = new Matrix3();
+	m.mArray[0][0] = 1; m.mArray[0][1] = -Math.tan(angleRad.mY); m.mArray[0][2] = 0;
+	m.mArray[1][0] = -Math.tan(angleRad.mX); m.mArray[1][1] = 1; m.mArray[1][2] = 0;
+	m.mArray[2][0] = 0; m.mArray[2][1] = 0; m.mArray[2][2] = 1;
+	
+	this.Multiply(m);
+}
 // ...End
 
 
@@ -347,7 +379,6 @@ var util = new function() {
 	this.PointInConvex = function(point, polygon) {
 		if (polygon.length > 2) { // if there as at least 3 points in the polygon (triangle)
 			var pt = new Vec2(0, 0); pt.Copy(point);
-			pt.mX -= 3; pt.mY -= 3;
 			
 			// copy the polygon to an array and add the first point to the end for looping
 			var poly = new Array();
@@ -643,6 +674,7 @@ function InputManager() {
 		this.mButtonStates[i] = 0;
 	}
 	
+	this.mMouseInCanvas = false; // is the mouse inside the canvas
 	this.mLocalMouseCoords = new Vec2(0, 0); // coordinates of the mouse in the canvas
 	this.mGlobalMouseCoords = new Vec2(0, 0); // coordinates of the mouse in the page
 	this.mWheelDelta = 0;
@@ -719,21 +751,27 @@ InputManager.prototype.HandleMouseMove = function(e) {
 		this.mLocalMouseCoords.mX = e.pageX - nmain.game.mCanvasPos.mX;
 		this.mLocalMouseCoords.mY = e.pageY - nmain.game.mCanvasPos.mY;
 		
+		this.mMouseInCanvas = true; // assume mouse is inside canvas
+		
 		// if mouse x is off the canvas then set it to the bounds
 		if (this.mLocalMouseCoords.mX < 0) {
 			this.mLocalMouseCoords.mX = 0;
+			this.mMouseInCanvas = false;
 		}
 		else if (this.mLocalMouseCoords.mX > nmain.game.mCanvasSize.mX) {
 			this.mLocalMouseCoords.mX = nmain.game.mCanvasSize.mX;
+			this.mMouseInCanvas = false;
 		}
 		
 		
 		// if mouse y is off the canvas then set it to the bounds
 		if (this.mLocalMouseCoords.mY < 0) {
 			this.mLocalMouseCoords.mY = 0;
+			this.mMouseInCanvas = false;
 		}
 		else if (this.mLocalMouseCoords.mY > nmain.game.mCanvasSize.mY) {
 			this.mLocalMouseCoords.mY = nmain.game.mCanvasSize.mY;
+			this.mMouseInCanvas = false;
 		}
 	}
 	
@@ -817,6 +855,11 @@ InputManager.prototype.GetKeyboardReleased = function(key) {
 	}
 	
 	return false;
+}
+
+// returns true if the mouse is inside the canvas
+InputManager.prototype.GetMouseInCanvas = function() {
+	return this.mMouseInCanvas;
 }
 
 // returns the coordinates of the mouse on the canvas
@@ -2333,6 +2376,7 @@ function Renderable() {
 	this.mTransformation = new Matrix3();
 	this.mScale = new Vec2(1.0, 1.0);
 	this.mRotation = 0;
+	this.mSkew = new Vec2();
 	this.mAlpha = 1.0;
 	this.mCompositeOp = "source-over";
 	
@@ -2360,6 +2404,7 @@ Renderable.prototype.Copy = function(other) {
 	this.mTransformation.Copy(other.mTransformation);
 	this.mScale.Copy(other.mScale); // copy the scale
 	this.mRotation = other.mRotation; // copy the rotation
+	this.mSkew.Copy(other.mSkew); // copy the skew
 	this.mAlpha = other.mAlpha; // copy the alpha value
 	this.mCompositeOp = other.mCompositeOp; //
 	
@@ -2449,6 +2494,24 @@ Renderable.prototype.Rotate = function(rotation) {
 	this.UpdateGlobalMask();
 }
 
+Renderable.prototype.SetSkew = function(skew) {
+	this.mSkew.Copy(skew);
+	
+	this.UpdateGlobalBoundingBox();
+	this.UpdateGlobalMask();
+}
+
+Renderable.prototype.GetSkew = function() {
+	return this.mSkew;
+}
+
+Renderable.prototype.Skew = function(skew) {
+	this.mTransformation.Skew(skew);
+	
+	this.UpdateGlobalBoundingBox();
+	this.UpdateGlobalMask();
+}
+
 Renderable.prototype.SetTransformation = function(transform) {
 	if (transform != null) { // if a valid matrix was supplied
 		this.mTransformation.Copy(transform); // replace current transformation with supplied matrix
@@ -2476,6 +2539,7 @@ Renderable.prototype.UpdateGlobalBoundingBox = function() {
 		
 		trans.Translate(new Vec2(this.mOrigin.mX,  this.mOrigin.mY)); // translate back from the origin
 		trans.Rotate(this.mRotation); // apply rotation (after scaling is done)
+		trans.Skew(this.mSkew);
 		trans.Scale(this.mScale); // apply scale first (to scale in x and y axes as defined by the texture)
 		trans.Translate(new Vec2(-this.mOrigin.mX, -this.mOrigin.mY)); // translate to the origin
 	}
@@ -2522,6 +2586,7 @@ Renderable.prototype.UpdateGlobalMask = function() {
 		
 		trans.Translate(new Vec2(this.mOrigin.mX,  this.mOrigin.mY)); // translate back from the origin
 		trans.Rotate(this.mRotation); // apply rotation (after scaling is done)
+		trans.Skew(this.mSkew);
 		trans.Scale(this.mScale); // apply scale first (to scale in x and y axes as defined by the texture)
 		trans.Translate(new Vec2(-this.mOrigin.mX, -this.mOrigin.mY)); // translate to the origin
 	}
@@ -2565,8 +2630,17 @@ function Text() {
 	this.mString = ""; // the current text to be rendered
 	this.mTextParts = new Array();
 	this.mColour = "#FFFFFF"; // the colour of the text
-	this.mShadowColour = "#000000"; // the colour of the offset shadow
+	
 	this.mShadow = false; // whether to render an offset shadow
+	this.mShadowAlpha = 1.0; // the alpha value of the shaod
+	this.mShadowColour = "#000000"; // the colour of the offset shadow
+	this.mShadowBlur = 0; // the amount for blur to apply to the shaodw
+	this.mShadowOffset = new Vec2(1, 1); // the shadow's offset in comparison to the text
+	
+	this.mOutline = false; // whether to draw an outline around the text or not
+	this.mOutlineColour = "#000000"; // the colour of the text outline
+	this.mOutlineAlpha = 1.0; // the alpha value of the text outline
+	this.mOutlineWidth = 1; // the width of the text outline
 	
 	this.mAlign = "left"; // the alignment of the text (left, centre, right)
 	
@@ -2595,8 +2669,9 @@ Text.prototype.Copy = function(other) {
 	this.mTransformation.Copy(other.mTransformation);
 	this.mScale.Copy(other.mScale);
 	this.mRotation = other.mRotation;
+	this.mSkew.Copy(other.mSkew);
 	this.mAlpha = other.mAlpha;
-	this.mCompositeOp = other.mCompositeOp; //
+	this.mCompositeOp = other.mCompositeOp;
 	
 	this.mLocalBoundingBox.Copy(other.mLocalBoundingBox);
 	this.mGlobalBoundingBox.Copy(other.mGlobalBoundingBox);
@@ -2612,13 +2687,20 @@ Text.prototype.Copy = function(other) {
 	this.mString = other.mString;
 	
 	this.mTextParts.splice(0, this.mTextParts.length);
-	for (var i = 0; i < other.mTextParts.length; ++i) {
-		this.mTextParts.push(other.mTextParts[i].GetCopy());
-	}
+	this.mTextParts = util.ConcatArray(this.mTextParts, other.mTextParts)
 	
 	this.mColour = other.mColour;
-	this.mShadowColour = other.mShadowColour;
+	
 	this.mShadow = other.mShadow;
+	this.mShadowAlpha = other.mShadowAlpha;
+	this.mShadowColour = other.mShadowColour;
+	this.mShadowBlur = other.mShadowBlur;
+	this.mShadowOffset.Copy(other.mShadowOffset);
+	
+	this.mOutline = other.mOutline;
+	this.mOutlineColour = other.mOutlineColour;
+	this.mOutlineAlpha = other.mOutlineAlpha;
+	this.mOutlineWidth = other.mOutlineWidth;
 	
 	this.mAlign = other.mAlign;
 	
@@ -2653,9 +2735,8 @@ Text.prototype.Render = function(renderTarget, cull, cullRect) {
 			// set the font of the text (size and family)
 			renderTarget.font = this.mFontString;
 			
-			// store the current alpha value and then set it to the sprite's alpha value
+			// store the current alpha value
 			var oldAlpha = renderTarget.globalAlpha;
-			renderTarget.globalAlpha = this.mAlpha;
 			
 			// 
 			var oldComp = renderTarget.globalCompositeOperation;
@@ -2669,6 +2750,7 @@ Text.prototype.Render = function(renderTarget, cull, cullRect) {
 				
 				trans.Translate(new Vec2(this.mOrigin.mX,  this.mOrigin.mY)); // translate back from the origin
 				trans.Rotate(this.mRotation); // apply rotation (after scaling is done)
+				trans.Skew(this.mSkew);
 				trans.Scale(this.mScale); // apply scale first (to scale in x and y axes as defined by the texture)
 				trans.Translate(new Vec2(-this.mOrigin.mX, -this.mOrigin.mY)); // translate to the origin
 			}
@@ -2684,13 +2766,43 @@ Text.prototype.Render = function(renderTarget, cull, cullRect) {
 				renderTarget.transform(a, b, c, d, e, f);
 			}
 			
-			for (var i = 0; i < this.mTextParts.length; ++i) {
-				renderTarget.fillStyle = this.mColour; // set the colour of the filled text
-				renderTarget.fillText(this.mTextParts[i].mString, this.mTextParts[i].mPos.mX, this.mTextParts[i].mPos.mY); // draw filled text
+			var shadowColour = "rgba(0, 0, 0, 0)"; // the default shadow colour is black and transparent
+			if (this.mShadow == true) { // if shadow is enabled
+				// update the shadow string
+				shadowColour = "rgba(" + parseInt(this.mShadowColour.substr(1, 2), 16) + ", " +
+						parseInt(this.mShadowColour.substr(3, 2), 16) + ", " +
+						parseInt(this.mShadowColour.substr(5, 2), 16) + ", " + this.mShadowAlpha + ")";
+				
+				// set the other attributes of the shadow
+				renderTarget.shadowBlur = this.mShadowBlur;
+				renderTarget.shadowOffsetX = this.mShadowOffset.mX;
+				renderTarget.shadowOffsetY = this.mShadowOffset.mY;
+			}
+			
+			renderTarget.fillStyle = this.mColour; // set the colour of the filled text
+			renderTarget.strokeStyle = this.mOutlineColour; // set the colour of the outline
+			renderTarget.lineWidth = this.mOutlineWidth; // set the outline width
+			
+			for (var i = 0; i < this.mTextParts.length; ++i) { // for all text parts
+				// set the shadow colour and alpha value of the filled text
+				renderTarget.shadowColor = shadowColour;
+				renderTarget.globalAlpha = this.mAlpha;
+				
+				// draw filled text
+				renderTarget.fillText(this.mTextParts[i].mString, this.mTextParts[i].mPos.mX, this.mTextParts[i].mPos.mY);
+				
+				if (this.mOutline == true) { // if we are to do an outline
+					// set the shadow colour and alpha value of the filled text
+					renderTarget.shadowColor = "rgba(0, 0, 0, 0)"; // no shadow
+					renderTarget.globalAlpha = this.mOutlineAlpha;
+					
+					// draw the outline
+					renderTarget.strokeText(this.mTextParts[i].mString, this.mTextParts[i].mPos.mX, this.mTextParts[i].mPos.mY);
+				}
 			}
 			
 			renderTarget.globalAlpha = oldAlpha; // restore the old alpha value
-			renderTarget.globalCompositeOperation = oldComp; // 
+			renderTarget.globalCompositeOperation = oldComp; // restore the saved composite value
 			renderTarget.restore(); // load the saved transform matrix
 		}
 	}
@@ -2714,6 +2826,7 @@ Text.prototype.UpdateGlobalBoundingBox = function() {
 		
 		trans.Translate(new Vec2(this.mOrigin.mX,  this.mOrigin.mY)); // translate back from the origin
 		trans.Rotate(this.mRotation); // apply rotation (after scaling is done)
+		trans.Skew(this.mSkew);
 		trans.Scale(this.mScale); // apply scale first (to scale in x and y axes as defined by the texture)
 		trans.Translate(new Vec2(-this.mOrigin.mX, -this.mOrigin.mY)); // translate to the origin
 	}
@@ -2747,6 +2860,7 @@ Text.prototype.UpdateGlobalMask = function() {
 		
 		trans.Translate(new Vec2(this.mOrigin.mX,  this.mOrigin.mY)); // translate back from the origin
 		trans.Rotate(this.mRotation); // apply rotation (after scaling is done)
+		trans.Skew(this.mSkew);
 		trans.Scale(this.mScale); // apply scale first (to scale in x and y axes as defined by the texture)
 		trans.Translate(new Vec2(-this.mOrigin.mX, -this.mOrigin.mY)); // translate to the origin
 	}
@@ -3044,6 +3158,7 @@ Shape.prototype.Copy = function(other) {
 	this.mTransformation.Copy(other.mTransformation);
 	this.mScale.Copy(other.mScale);
 	this.mRotation = other.mRotation;
+	this.mSkew.Copy(other.mSkew);
 	this.mAlpha = other.mAlpha;
 	this.mCompositeOp = other.mCompositeOp; //
 	
@@ -3105,6 +3220,7 @@ Shape.prototype.Render = function(renderTarget, cull, cullRect) {
 				
 				trans.Translate(new Vec2(this.mOrigin.mX,  this.mOrigin.mY)); // translate back from the origin
 				trans.Rotate(this.mRotation); // appl rotation (after scaling is done)
+				trans.Skew(this.mSkew);
 				trans.Scale(this.mScale); // apply scale first (to scale in x and y axes as defined by the texture)
 				trans.Translate(new Vec2(-this.mOrigin.mX, -this.mOrigin.mY)); // translate to the origin
 			}
@@ -3194,6 +3310,7 @@ Shape.prototype.UpdateGlobalBoundingBox = function() {
 		
 		trans.Translate(new Vec2(this.mOrigin.mX,  this.mOrigin.mY)); // translate back from the origin
 		trans.Rotate(this.mRotation); // apply rotation (after scaling is done)
+		trans.Skew(this.mSkew);
 		trans.Scale(this.mScale); // apply scale first (to scale in x and y axes as defined by the texture)
 		trans.Translate(new Vec2(-this.mOrigin.mX, -this.mOrigin.mY)); // translate to the origin
 	}
@@ -3341,6 +3458,7 @@ Sprite.prototype.Copy = function(other) {
 	this.mTransformation.Copy(other.mTransformation);
 	this.mScale.Copy(other.mScale);
 	this.mRotation = other.mRotation;
+	this.mSkew.Copy(other.mSkew);
 	this.mAlpha = other.mAlpha;
 	this.mCompositeOp = other.mCompositeOp; //
 	
@@ -3404,6 +3522,7 @@ Sprite.prototype.Render = function(renderTarget, cull, cullRect) {
 				
 				trans.Translate(new Vec2(this.mOrigin.mX,  this.mOrigin.mY)); // translate back from the origin
 				trans.Rotate(this.mRotation); // apply rotation (after scaling is done)
+				trans.Skew(this.mSkew);
 				trans.Scale(this.mScale); // apply scale first (to scale in x and y axes as defined by the texture)
 				trans.Translate(new Vec2(-this.mOrigin.mX, -this.mOrigin.mY)); // translate to the origin
 			}
@@ -3598,6 +3717,7 @@ RenderCanvas.prototype.Copy = function(other) {
 	this.mTransformation.Copy(other.mTransformation);
 	this.mScale.Copy(other.mScale);
 	this.mRotation = other.mRotation;
+	this.mSkew.Copy(other.mSkew);
 	this.mAlpha = other.mAlpha;
 	this.mCompositeOp = other.mCompositeOp; //
 	
@@ -3653,6 +3773,7 @@ RenderCanvas.prototype.Render = function(renderTarget, cull, cullRect) {
 				
 				trans.Translate(new Vec2(this.mOrigin.mX,  this.mOrigin.mY)); // translate back from the origin
 				trans.Rotate(this.mRotation); // apply rotation (after scaling is done)
+				trans.Skew(this.mSkew);
 				trans.Scale(this.mScale); // apply scale first (to scale in x and y axes as defined by the texture)
 				trans.Translate(new Vec2(-this.mOrigin.mX, -this.mOrigin.mY)); // translate to the origin
 			}
@@ -3711,17 +3832,15 @@ RenderCanvas.prototype.Clear = function() {
 }
 
 RenderCanvas.prototype.RenderTo = function(renderable, camera) {
-	{
-		var batch = new RenderBatch();
-		batch.mFrustrumCull = this.mFrustrumCull;
-		batch.Clear();
-		
-		for (var i = 0; i < renderable.length; ++i) {
-			batch.Add(renderable[i]);
-		}
-		
-		batch.Render(camera, this.mCanvas);
+	var batch = new RenderBatch();
+	batch.mFrustrumCull = this.mFrustrumCull;
+	batch.Clear();
+	
+	for (var i = 0; i < renderable.length; ++i) {
+		batch.Add(renderable[i]);
 	}
+	
+	batch.Render(camera, this.mContext);
 }
 // ...End
 
@@ -3786,13 +3905,11 @@ RenderBatch.prototype.Clear = function() {
 
 // render the render batch to the canvas
 RenderBatch.prototype.Render = function(camera, target) {
-	// use the supplied target (canvas) if valid, otherwise use the main 
-	var targ = nmain.game.mCurrCanvas;
+	// use the supplied target (context) if valid, otherwise use the main context
+	var targ = nmain.game.mCurrContext;
 	if (target != null) {
 		targ = target;
 	}
-	
-	var targContext = targ.getContext("2d"); // get the conext associated with the canvas
 	
 	// if we need to sort the renderables array
 	if (this.mNeedSort == true) {
@@ -3822,40 +3939,42 @@ RenderBatch.prototype.Render = function(camera, target) {
 		this.mNeedSort = false; // notify that sort is complete
 	}
 	
-	var context = targContext;
+	var camContext = targ; // reference to the camera context (if simple cam, reference to main context)
+	
+	// create the rectangle that frustrum culling is check against, defaulting to canvas' dimensions
 	var cullRect = new Polygon();
-	cullRect.MakeRectangle(new Vec2(0, 0), new Vec2(targ.width, targ.height));
+	cullRect.MakeRectangle(new Vec2(0, 0), new Vec2(targ.canvas.width, targ.canvas.height));
 	
 	if (camera != null) { // if a camera was supplied
-		cullRect.mPos.Copy(camera.mPos);
+		cullRect.mPos.Copy(camera.mPos); // set the culling rectangle's position to the camera's position
 		
-		if (camera.Type() == "Camera") {
+		if (camera.Type() == "Camera") { // if camera is NOT simple
 			camera.Clear(); // clear the camera's context
-			context = camera.mContext;
+			camContext = camera.mContext; // update the context reference
 			
-			cullRect.MakeRectangle(camera.mPos, camera.mSize);
+			cullRect.MakeRectangle(camera.mPos, camera.mSize); // remake the culling rect to be the size of the camera
 		}
 		
-		for (var i = 0; i < this.mRenderData.length; ++i) {
+		for (var i = 0; i < this.mRenderData.length; ++i) { // for all data to be rendered
 			if (this.mRenderData[i].mAbsolute == false) { // if the renderable is not absolute
-				context.save(); // save the current transformation
-				context.translate(-camera.mPos.mX, -camera.mPos.mY); // apply translation
+				camContext.save(); // save the current transformation
+				camContext.translate(-camera.mPos.mX, -camera.mPos.mY); // apply translation
 			}
 			
-			this.mRenderData[i].Render(context, this.mFrustrumCull, cullRect); // render the renderable to the camera's context
+			this.mRenderData[i].Render(camContext, this.mFrustrumCull, cullRect); // render the renderable to the camera's context
 			
 			if (this.mRenderData[i].mAbsolute == false) {
-				context.restore(); // restore the previous transformation
+				camContext.restore(); // restore the previous transformation
 			}
 		}
 		
 		if (camera.Type() == "Camera") {
-			camera.Render(targContext); // render the camera to the target context
+			camera.Render(targ); // render the camera to the target context
 		}
 	}
 	else { // otherwise no camera supplied
 		for (var i = 0; i < this.mRenderData.length; ++i) {
-			this.mRenderData[i].Render(targContext, this.mFrustrumCull, cullRect); // render straight to the target context
+			this.mRenderData[i].Render(targ, this.mFrustrumCull, cullRect); // render straight to the target context
 		}
 	}
 }
@@ -6021,35 +6140,40 @@ InitScene.prototype.Type = function() {
 // initialises the scene object
 InitScene.prototype.SetUp = function() {
 	try {
-		nmgrs.resLoad.QueueFont("poetsen", "./res/sys/PoetsenOne-Regular");
-		nmgrs.resLoad.QueueFont("sansRegular", "./res/sys/Sansation_Regular");
-		nmgrs.resLoad.QueueFont("sansBold", "./res/sys/Sansation_Bold");
-		nmgrs.resLoad.QueueFont("monaco", "./res/sys/monaco");
+		// 
+		nmgrs.resLoad.QueueFont("monaco", "./res/sys/monaco/monaco");
+		
+		//
+		nmgrs.resLoad.QueueFont("kingthings", "./res/sys/kingthings exeter/Kingthings_Exeter");
+		
 		nmgrs.resLoad.QueueFont("oldmansans", "./res/sys/OldSansBlack");
 		
 		// card textures
-		nmgrs.resLoad.QueueTexture("cardsLarge", "./res/vis/cardsLarge.png");
-		nmgrs.resLoad.QueueTexture("cardsMedium", "./res/vis/cardsMedium.png");
-		nmgrs.resLoad.QueueTexture("cardsSmall", "./res/vis/cardsSmall.png");
-		nmgrs.resLoad.QueueTexture("cardBackLarge", "./res/vis/cardBackLarge.png");
-		nmgrs.resLoad.QueueTexture("cardBackMedium", "./res/vis/cardBackMedium.png");
-		nmgrs.resLoad.QueueTexture("cardBackSmall", "./res/vis/cardBackSmall.png");
-		nmgrs.resLoad.QueueTexture("cardBundleMedium", "./res/vis/cardBundleMedium.png");
-		nmgrs.resLoad.QueueTexture("cardBundleSmall", "./res/vis/cardBundleSmall.png");
+		nmgrs.resLoad.QueueTexture("cardsLarge", "./res/vis/cards/default/cardsLarge.png");
+		nmgrs.resLoad.QueueTexture("cardsMedium", "./res/vis/cards/default/cardsMedium.png");
+		nmgrs.resLoad.QueueTexture("cardsSmall", "./res/vis/cards/default/cardsSmall.png");
+		nmgrs.resLoad.QueueTexture("cardBackLarge", "./res/vis/cards/default/cardBackLarge.png");
+		nmgrs.resLoad.QueueTexture("cardBackMedium", "./res/vis/cards/default/cardBackMedium.png");
+		nmgrs.resLoad.QueueTexture("cardBackSmall", "./res/vis/cards/default/cardBackSmall.png");
+		nmgrs.resLoad.QueueTexture("cardBundleMedium", "./res/vis/cards/default/cardBundleMedium.png");
+		nmgrs.resLoad.QueueTexture("cardBundleSmall", "./res/vis/cards/default/cardBundleSmall.png");
 		
-		nmgrs.resLoad.QueueTexture("buttonLarge", "./res/vis/buttonLarge.png");
-		nmgrs.resLoad.QueueTexture("buttonSmall", "./res/vis/buttonSmall.png");
-		nmgrs.resLoad.QueueTexture("buttonGraveyardArrow", "./res/vis/buttonGraveyardArrow.png");
+		nmgrs.resLoad.QueueTexture("buttonLarge", "./res/vis/ui/buttonLarge.png");
+		nmgrs.resLoad.QueueTexture("buttonSmall", "./res/vis/ui/buttonSmall.png");
+		nmgrs.resLoad.QueueTexture("buttonGraveyardArrow", "./res/vis/ui/buttonGraveyardArrow.png");
 		
-		nmgrs.resLoad.QueueTexture("logIcons", "./res/vis/logIcons.png");
-		nmgrs.resLoad.QueueTexture("logBack", "./res/vis/logBack.png");
-		nmgrs.resLoad.QueueTexture("logFront", "./res/vis/logFront.png");
+		nmgrs.resLoad.QueueTexture("logIcons", "./res/vis/ui/logIcons.png");
+		nmgrs.resLoad.QueueTexture("logBack", "./res/vis/ui/logBack.png");
+		nmgrs.resLoad.QueueTexture("logFront", "./res/vis/ui/logFront.png");
 		
-		nmgrs.resLoad.QueueTexture("optionsCheck", "./res/vis/optionsCheck.png");
+		nmgrs.resLoad.QueueTexture("optionsCheck", "./res/vis/ui/optionsCheck.png");
 		
-		nmgrs.resLoad.QueueTexture("statusAVBack", "./res/vis/statusAVBack.png");
-		nmgrs.resLoad.QueueTexture("statusSSBack", "./res/vis/statusSSBack.png");
-		nmgrs.resLoad.QueueTexture("statusIcons", "./res/vis/statusIcons.png");
+		nmgrs.resLoad.QueueTexture("statusAVBack", "./res/vis/ui/statusAVBack.png");
+		nmgrs.resLoad.QueueTexture("statusSSBack", "./res/vis/ui/statusSSBack.png");
+		nmgrs.resLoad.QueueTexture("statusIcons", "./res/vis/ui/statusIcons.png");
+		
+		nmgrs.resLoad.QueueTexture("menuLogo", "./res/vis/menuLogo.png");
+		nmgrs.resLoad.QueueTexture("gameBack", "./res/vis/back.png");
 		
 		nmgrs.resLoad.AcquireResources();
 		nmgrs.resLoad.mIntervalID = setInterval(function() {nmgrs.resLoad.ProgressCheck();}, 0);
@@ -6402,13 +6526,7 @@ function OogaahTestScene() {
 	
 	this.mBatch = new RenderBatch();
 	
-	this.mSprite = new Sprite();
 	this.mShape = new Shape();
-	this.mShapeLine = new Shape();
-	
-	this.mSpriteB = new Sprite();
-	this.mShapeB = new Shape();
-	this.mShapeLineB = new Shape();
 };
 
 // returns the type of this object for validity checking
@@ -6420,72 +6538,10 @@ OogaahTestScene.prototype.Type = function() {
 OogaahTestScene.prototype.SetUp = function() {
 	nmain.game.mClearColour = "#2A2330";
 	
-	{
-		var pos = new Vec2(100, 100);
-		
-		this.mShape.SetPosition(new Vec2(pos.mX + 120, pos.mY));
-		this.mShape.SetOrigin(new Vec2(40, 40));
-		this.mShape.AddPoint(new Vec2(0, 171));
-		this.mShape.AddPoint(new Vec2(-120, 171));
-		
-		this.mShape.AddPoint(new Vec2(-80, 95));
-		this.mShape.AddPoint(new Vec2(-60, 85)); // mid
-		this.mShape.AddPoint(new Vec2(-40, 75));
-		
-		/* this.mShapeLine.SetPosition(new Vec2(110, 258));
-		this.mShapeLine.AddPoint(new Vec2(34, -50));
-		this.mShapeLine.AddPoint(new Vec2(32, -70));
-		this.mShapeLine.AddPoint(new Vec2(69, -76));
-		this.mShapeLine.AddPoint(new Vec2(67, -99));
-		this.mShapeLine.AddPoint(new Vec2(100, -148));
-		this.mShapeLine.mLineWidth = 4;
-		this.mShapeLine.mRenderStyle = "Line"
-		this.mShapeLine.mColour = "#FAF1CE"; */
-		
-		var tex = nmgrs.resMan.mTexStore.GetResource("cardsMedium");
-		this.mSprite.SetTexture(tex, 13, 5);
-		this.mSprite.SetCurrentFrame(12);
-		this.mSprite.SetPosition(new Vec2(pos.mX, pos.mY));
-		
-		var spr = this.mSprite.GetCopy();
-		spr.SetCurrentFrame(5);
-		spr.SetPosition(new Vec2(-120, 0));
-		
-		this.mShape.mSprite = spr;
-	}
+	this.mShape.MakeRectangle(new Vec2(100, 100), new Vec2(100, 40));
+	this.mShape.mColour = "#FFFFFF";
 	
-	{
-		var pos = new Vec2(300, 100);
-		
-		this.mShapeB.SetPosition(new Vec2(pos.mX + 72, pos.mY));
-		this.mShapeB.AddPoint(new Vec2(0, 103));
-		this.mShapeB.AddPoint(new Vec2(-72, 103));
-		
-		this.mShapeB.AddPoint(new Vec2(-50, 59));
-		this.mShapeB.AddPoint(new Vec2(-36, 51)); // mid
-		this.mShapeB.AddPoint(new Vec2(-22, 43));
-		
-		/* this.mShapeLineB.SetPosition(new Vec2(310, 258));
-		this.mShapeLineB.AddPoint(new Vec2(34, -50));
-		this.mShapeLineB.AddPoint(new Vec2(32, -70));
-		this.mShapeLineB.AddPoint(new Vec2(69, -76));
-		this.mShapeLineB.AddPoint(new Vec2(67, -99));
-		this.mShapeLineB.AddPoint(new Vec2(100, -148));
-		this.mShapeLineB.mLineWidth = 4;
-		this.mShapeLineB.mRenderStyle = "Line"
-		this.mShapeLineB.mColour = "#FAF1CE"; */
-		
-		var tex = nmgrs.resMan.mTexStore.GetResource("cardsSmall");
-		this.mSpriteB.SetTexture(tex, 13, 5);
-		this.mSpriteB.SetCurrentFrame(12);
-		this.mSpriteB.SetPosition(new Vec2(pos.mX, pos.mY));
-		
-		var spr = this.mSpriteB.GetCopy();
-		spr.SetCurrentFrame(5);
-		spr.SetPosition(new Vec2(-72, 0));
-		
-		this.mShapeB.mSprite = spr;
-	}
+	this.mShape.SetSkew(new Vec2(10, 10));
 }
 
 // cleans up the scene object
@@ -6510,19 +6566,13 @@ OogaahTestScene.prototype.Render = function() {
 	
 	var arr = new Array();
 	
-	arr.push(this.mSprite);
 	arr.push(this.mShape);
-	// arr.push(this.mShapeLine);
-	
-	arr.push(this.mSpriteB);
-	arr.push(this.mShapeB);
-	// arr.push(this.mShapeLineB);
 	
 	for (var i = 0; i < arr.length; ++i) {
 		this.mBatch.Add(arr[i]);
 	}
 	
-	this.mBatch.Render(this.mCamera, null);
+	this.mBatch.Render(null, null);
 }
 // ...End
 
@@ -6537,7 +6587,7 @@ function OogaahMenuScene() {
 	this.mBackColour = new Shape();
 	this.mMenuControl = new OogaahMenuControl();
 	
-	this.mCardBack = new Sprite();
+	this.mLogo = new Sprite();
 };
 
 // returns the type of this object for validity checking
@@ -6547,7 +6597,7 @@ OogaahMenuScene.prototype.Type = function() {
 
 // initialises the scene object
 OogaahMenuScene.prototype.SetUp = function() {
-	nmain.game.mClearColour = "#FFFFFF";
+	nmain.game.mClearColour = "#FAF1CE";
 	
 	{
 		this.mBackColour.SetPosition(new Vec2(2, 2));
@@ -6561,10 +6611,9 @@ OogaahMenuScene.prototype.SetUp = function() {
 	
 	this.mMenuControl.SetUp();
 	
-	var tex = nmgrs.resMan.mTexStore.GetResource("cardBackLarge");
-	this.mCardBack.SetTexture(tex);
-	this.mCardBack.SetPosition(new Vec2(Math.round(nmain.game.mCanvasSize.mX / 2), 20));
-	this.mCardBack.SetOrigin(new Vec2(Math.round(this.mCardBack.GetSize().mX / 2), 0));
+	var tex = nmgrs.resMan.mTexStore.GetResource("menuLogo");
+	this.mLogo.SetTexture(tex);
+	this.mLogo.SetPosition(new Vec2(10, 10));
 }
 
 // cleans up the scene object
@@ -6590,8 +6639,9 @@ OogaahMenuScene.prototype.Render = function() {
 	var arr = new Array();
 	
 	arr.push(this.mBackColour);
+	arr.push(this.mLogo);
+	
 	arr = util.ConcatArray(arr, this.mMenuControl.GetRenderData());
-	arr.push(this.mCardBack);
 	
 	for (var i = 0; i < arr.length; ++i) {
 		this.mBatch.Add(arr[i]);
@@ -6605,59 +6655,158 @@ OogaahMenuScene.prototype.Render = function() {
 // OogaahMenuControl Class...
 // 
 function OogaahMenuControl() {
-	this.mMenuOptionIndicator = new Shape();
-	this.mMenuOptions = new Array();
-	this.mMenuOptions[0] = new Text();
+	this.mMenuOptionBack = new Array();
+	this.mMenuOptionBack[0] = new Shape();
+	this.mMenuOptionBack[1] = new Shape();
+	this.mMenuOptionBack[2] = new Shape();
+	
+	this.mMenuOptionText = new Array();
+	this.mMenuOptionText[0] = new RenderCanvas();
+	this.mMenuOptionText[1] = new RenderCanvas();
+	this.mMenuOptionText[2] = new RenderCanvas();
 	
 	this.mCurrentOption = -1;
+	
+	this.mFinished = false;
 };
 
 OogaahMenuControl.prototype.SetUp = function() {
-	this.mMenuOptionIndicator.SetPosition(new Vec2(230, 422));
-	this.mMenuOptionIndicator.AddPoint(new Vec2(8, 0));
-	this.mMenuOptionIndicator.AddPoint(new Vec2(8, 8));
-	this.mMenuOptionIndicator.AddPoint(new Vec2(0, 8));
+	{
+		var yOff = 460;
+		var xSize = 80;
+		
+		for (var i = 0; i < this.mMenuOptionBack.length; ++i) {
+			this.mMenuOptionBack[i].MakeRectangle(new Vec2(-80, yOff), new Vec2(xSize, 32));
+			this.mMenuOptionBack[i].SetSkew(new Vec2(15, 0));
+			this.mMenuOptionBack[i].mColour = "#FAF1CE";
+			this.mMenuOptionBack[i].mAlpha = 0.5;
+			
+			yOff += 40;
+			xSize -= 64;
+		}
+	}
 	
-	this.mMenuOptionIndicator.mColour = "#FFFFFF";
-	this.mMenuOptionIndicator.mAbsolute = true;
-	
-	
-	this.mMenuOptions[0].SetPosition(new Vec2(250, 410));
-	
-	var fnt = nmgrs.resMan.mFontStore.GetResource("poetsen");
-	this.mMenuOptions[0].SetFont(fnt);
-	this.mMenuOptions[0].SetFontSize(26);
-	
-	this.mMenuOptions[0].SetString("Start Game");
-	this.mMenuOptions[0].mColour = "#FFFFFF";
-	this.mMenuOptions[0].mAbsolute = true;
-	
-	this.mMenuOptions[0].SetMask();
+	{
+		var arr = new Array();
+		
+		{
+			var fnt = nmgrs.resMan.mFontStore.GetResource("kingthings");
+			var txt = new Text();
+			txt.SetFont(fnt);
+			txt.SetFontSize(28);
+			txt.mAlign = "right";
+			txt.mColour = "#35251C";
+			txt.SetPosition(new Vec2(320, 0));
+			
+			txt.SetString("Play a Game");
+			arr.push(new Array(txt.GetCopy()));
+			
+			txt.SetString("Learn to Play");
+			arr.push(new Array(txt.GetCopy()));
+			
+			txt.SetString("Set Options");
+			arr.push(new Array(txt.GetCopy()));
+		}
+		
+		var yOff = 274;
+		for (var i = 0; i < this.mMenuOptionText.length; ++i) {
+			this.mMenuOptionText[i].SetSize(new Vec2(320, 36));
+			this.mMenuOptionText[i].RenderTo(arr[i]);
+			
+			this.mMenuOptionText[i].SetPosition(new Vec2(nmain.game.mCanvasSize.mX - 40, yOff));
+			this.mMenuOptionText[i].SetOrigin(new Vec2(320, 0));
+			this.mMenuOptionText[i].SetSkew(new Vec2(15, 0));
+			
+			this.mMenuOptionText[i].mAlpha = 0.0;
+			
+			yOff += 40;
+		}
+	}
 }
 
 // handles user input
 OogaahMenuControl.prototype.Input = function() {
 	if (nmgrs.inputMan.GetMousePressed(nmouse.button.code.left) == true) {
-		if (this.mCurrentOption == 0) {
-			nmgrs.sceneMan.RequestSceneChange(new OogaahGameScene());
+		switch (this.mCurrentOption) {
+			case 0 :
+				nmgrs.sceneMan.RequestSceneChange(new OogaahGameScene());
+				break;
+			case 1 :
+				nmgrs.sceneMan.RequestSceneChange(new OogaahExamplePlayScene());
+				break;
+			case 2 :
+				nmgrs.sceneMan.RequestSceneChange(new OogaahOptionsScene());
+				break;
 		}
 	}
 }
 
 // handles game logic
 OogaahMenuControl.prototype.Process = function() {
-	this.mCurrentOption = -1;
-	
-	for (var i = 0; i < this.mMenuOptions.length; ++i) {
-		var p = new Vec2(); p.Copy(nmgrs.inputMan.GetLocalMouseCoords());
+	if (this.mFinished == true) { // if menu has fully loaded
+		this.mCurrentOption = -1;
+		var found = false;
 		
-		var bounds = this.mMenuOptions[i].mGlobalMask.GetBounds();
-		var tl = bounds[0];
-		var br = bounds[1];
+		for (var i = 0; i < this.mMenuOptionBack.length; ++i) {
+			this.mMenuOptionBack[i].mAlpha = 0.5;
+			this.mMenuOptionText[i].SetScale(new Vec2(1.0, 1.0));
+			
+			var p = new Vec2(); p.Copy(nmgrs.inputMan.GetLocalMouseCoords());
+			
+			var polygon = this.mMenuOptionBack[i].mGlobalMask.GetAbsolute();
+			
+			if (util.PointInConvex(p, polygon) == true && found == false &&
+					nmgrs.inputMan.GetMouseInCanvas() == true) {
+				
+				this.mCurrentOption = i;
+				this.mMenuOptionBack[i].mAlpha = 1;
+				this.mMenuOptionText[i].SetScale(new Vec2(1.2, 1.0));
+				found = true;
+			}
+		}
+	}
+	else { // otherwise we're still loading menu
+		// if the first menu option back shape has not yet fully animated
+		if (this.mMenuOptionBack[0].mPoints[0].mX < nmain.game.mCanvasSize.mX + 160) {
+			var shp = this.mMenuOptionBack[0]; // reference the back shape
+			shp.MakeRectangle(shp.mPos, new Vec2(shp.mSize.mX + 16, shp.mSize.mY)); // increase the length of the shape
+		}
+		else { // otherwise it has fully loaded
+			if (this.mMenuOptionText[0].mAlpha < 1.0) { // if the text is not yet fully opaque
+				this.mMenuOptionText[0].mAlpha += 0.1; // increase the alpha value
+			}
+			else { // otherwise text is fully opaque
+				this.mMenuOptionBack[0].SetMask(); // so set the collision mask (for user interaction)
+			}
+		}
 		
-		if (util.PointInRectangle(p, tl, br) == true) {
-			this.mCurrentOption = i;
-			break;
+		// as above
+		if (this.mMenuOptionBack[1].mPoints[0].mX < nmain.game.mCanvasSize.mX + 160) {
+			var shp = this.mMenuOptionBack[1];
+			shp.MakeRectangle(shp.mPos, new Vec2(shp.mSize.mX + 16, shp.mSize.mY));
+		}
+		else {
+			if (this.mMenuOptionText[1].mAlpha < 1.0) {
+				this.mMenuOptionText[1].mAlpha += 0.1;
+			}
+			else {
+				this.mMenuOptionBack[1].SetMask();
+			}
+		}
+		
+		// as above
+		if (this.mMenuOptionBack[2].mPoints[0].mX < nmain.game.mCanvasSize.mX + 160) {
+			var shp = this.mMenuOptionBack[2];
+			shp.MakeRectangle(shp.mPos, new Vec2(shp.mSize.mX + 16, shp.mSize.mY));
+		}
+		else {
+			if (this.mMenuOptionText[2].mAlpha < 1.0) {
+				this.mMenuOptionText[2].mAlpha += 0.1;
+			}
+			else {
+				this.mMenuOptionBack[2].SetMask();
+				this.mFinished = true; // once last shape is fully loaded, we are done
+			}
 		}
 	}
 }
@@ -6666,12 +6815,12 @@ OogaahMenuControl.prototype.Process = function() {
 OogaahMenuControl.prototype.GetRenderData = function() {
 	var arr = new Array();
 	
-	if (this.mCurrentOption >= 0) {
-		arr.push(this.mMenuOptionIndicator);
+	for (var i = 0; i < this.mMenuOptionBack.length; ++i) {
+		arr.push(this.mMenuOptionBack[i]);
 	}
 	
-	for (var i = 0; i < this.mMenuOptions.length; ++i) {
-		arr.push(this.mMenuOptions[i]);
+	for (var i = 0; i < this.mMenuOptionText.length; ++i) {
+		arr.push(this.mMenuOptionText[i]);
 	}
 	
 	return arr;
@@ -6688,7 +6837,8 @@ function OogaahGameScene() {
 	this.mBatch = new RenderBatch(); // the main render batch
 	this.mRand = new RNG(); // the random number generator
 	
-	this.mBackColour = new Shape();
+	// this.mBackColour = new Shape();
+	this.mGameBack = new Sprite();
 	
 	this.mCardList = new Array(); // array containing a list of the available cards
 	this.mDeck = new Array(); // the deck containing all of the cards required for a game
@@ -6734,13 +6884,18 @@ OogaahGameScene.prototype.SetUp = function() {
 	this.mBatch.mFrustrumCull = false;
 	
 	{
-		this.mBackColour.mPos.Set(2, 2);
+		/* this.mBackColour.mPos.Set(2, 2);
 		this.mBackColour.AddPoint(new Vec2(636,   0));
 		this.mBackColour.AddPoint(new Vec2(636, 476));
 		this.mBackColour.AddPoint(new Vec2(  0, 476));
 		this.mBackColour.mAbsolute = true;
 		this.mBackColour.mDepth = 99999;
-		this.mBackColour.mColour = "#35251C";
+		this.mBackColour.mColour = "#35251C"; */
+		
+		var tex = nmgrs.resMan.mTexStore.GetResource("gameBack");
+		this.mGameBack.SetTexture(tex);
+		this.mGameBack.SetPosition(new Vec2(2, 2));
+		this.mGameBack.mDepth = 99999;
 	}
 	
 	this.CreateCardList();
@@ -6772,7 +6927,7 @@ OogaahGameScene.prototype.SetUp = function() {
 	
 	{
 		var pos = new Vec2(102, 143);
-		var fnt = nmgrs.resMan.mFontStore.GetResource("poetsen");
+		var fnt = nmgrs.resMan.mFontStore.GetResource("kingthings");
 		
 		this.mStatusAVText.SetFont(fnt);
 		this.mStatusAVText.SetFontSize(36);
@@ -6847,47 +7002,55 @@ OogaahGameScene.prototype.Input = function() {
 
 // handles game logic
 OogaahGameScene.prototype.Process = function() {
-	this.mGraveyard.Process(); // process the graveyard
 	this.mLog.Process(); // process the play log
 	
-	for (var i = 0; i < this.mPlayers.length; ++i) {
-		if (this.mPlayers[i].mType == "Human") {
-			this.mPlayers[i].Process();
+	if (false) { // if playMode is 0
+		if (true) { // if this is the first round
+			// do init stuff
+		}
+		else { // otherwise
+			// do other stuff
 		}
 	}
-	
-	if (this.mDelay <= 0) {
-		if (this.mPlayers[this.mCurrPlayer].mType == "AI") {
-			this.mPlayers[this.mCurrPlayer].Process();
+	else if (true) { // otherwise if playMode is 1
+		this.mGraveyard.Process(); // process the graveyard
+		
+		for (var i = 0; i < this.mPlayers.length; ++i) {
+			if (this.mPlayers[i].mType == "Human") {
+				this.mPlayers[i].Process();
+			}
 		}
-	}
-	else {
-		if (this.mPlayers[this.mCurrPlayer].mType == "Human") {
-			if (this.mPlayers[this.mCurrPlayer].mFinished == false) {
-				this.mDelay = 0;
+		
+		if (this.mDelay <= 0) {
+			if (this.mPlayers[this.mCurrPlayer].mType == "AI") {
+				this.mPlayers[this.mCurrPlayer].Process();
 			}
 		}
 		else {
-			this.mDelay -= 1000 / nmain.game.mFrameLimit;
-		}
-	}
-	
-	if (this.mFinishedCount == 3) {
-		var lastPlayer = null;
-		for (var i = 0; i < this.mPlayers.length; ++i) {
-			if (this.mPlayers[i].mFinished == false) {
-				lastPlayer = this.mPlayers[i];
-				break;
+			if (this.mPlayers[this.mCurrPlayer].mType == "Human") {
+				if (this.mPlayers[this.mCurrPlayer].mFinished == false) {
+					this.mDelay = 0;
+				}
+			}
+			else {
+				this.mDelay -= 1000 / nmain.game.mFrameLimit;
 			}
 		}
 		
-		this.mLog.AddEntry(10, lastPlayer.mName + " was thoroughly decimated (4th)!"); // add entry to the play log
-		lastPlayer.mFinished = true;
-		++this.mFinishedCount;
-		this.mLastPlayer = -1;
-	}
-	else {
-		
+		if (this.mFinishedCount == 3) {
+			var lastPlayer = null;
+			for (var i = 0; i < this.mPlayers.length; ++i) {
+				if (this.mPlayers[i].mFinished == false) {
+					lastPlayer = this.mPlayers[i];
+					break;
+				}
+			}
+			
+			this.mLog.AddEntry(10, lastPlayer.mName + " was thoroughly decimated (4th)!"); // add entry to the play log
+			lastPlayer.mFinished = true;
+			++this.mFinishedCount;
+			this.mLastPlayer = -1;
+		}
 	}
 }
 
@@ -6898,7 +7061,8 @@ OogaahGameScene.prototype.Render = function() {
 	
 	var arr = new Array();
 	
-	arr.push(this.mBackColour);
+	// arr.push(this.mBackColour);
+	arr.push(this.mGameBack);
 	
 	arr = util.ConcatArray(arr, this.mLog.GetRenderData()); // render the play log
 	
@@ -7463,7 +7627,7 @@ function OogaahGraveyard() {
 	this.mBundleSprites[2] = new Sprite();
 	
 	this.mSize = 2; // the current render size of the graveyard
-	this.m3 = false; // is the graveyard currently selectable
+	this.mSelectable = false; // is the graveyard currently selectable
 	
 	this.mView = false;
 	this.mViewShape = new Shape();
@@ -7491,71 +7655,15 @@ OogaahGraveyard.prototype.AddCard = function(card) {
 	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
 	var c = card.GetCopy(); // get a copy of the card
 	
-	{ // handle human peasant ability (which activates when a human knight enters the graveyard)
-		var knight = false; // was it a knight that was added
-		var peasant = false; // was it a peasant that was added
-		
-		if (c.mCardAttack == "9") { // if the card is a "9" (knight)
-			knight = true; // it was a knight
-		}
-		else if (c.mCardAttack == "S") { // otherwise if the card is an "S" (being of light)
-			if (c.mMimic != null) { // if being of light was played using its ability
-				if (c.mMimic.mCardAttack == "9") { // if the card was played as a knight
-					knight = true; // it was a knight
-				}
-			}
-		}
-		else if (c.mCardAttack == "3") { // if the card is a "3" (peasant)
-			peasant = true; // it was a peasant
-		}
-		
-		if (knight == true) { // if it was a knight that was added
-			for (var i = 0; i < currScene.mPlayers.length; ++i) { // for all players
-				var hand = currScene.mPlayers[i].mHand; // reference to current hand
-				for (var j = 0; j < hand.mCards.length; ++j) { // for all cards in the hand
-					if (hand.mCards[j].mCardAttack == "3") { // if the card is a "3" (human peasant)
-						hand.mCards[j].ModifyValue(1); // update the card's value
-					}
-				}
-				
-				currScene.mPlayers[i].PositionHand();
-			}
-			
-			for (var i = 0; i < this.mViewCards.length; ++i) {
-				for (var j = 0; j < this.mViewCards[i].length; ++j) {
-					if (this.mViewCards[i][j].mCard.mCardAttack == "3") { // if the card is a "3" (peasant)
-						this.mViewCards[i][j].mCard.ModifyValue(1);
-						this.mViewCards[i][j].mCard.PositionValueText();
-						
-						this.mCards[this.mViewCards[i][j].mIndex].ModifyValue(1);
-						this.mCards[this.mViewCards[i][j].mIndex].PositionValueText();
-					}
-				}
-			}
-		}
-		else if (peasant == true) { // if it was a peasant that was added
-			var knights = 0;
-			
-			for (var i = 0; i < this.mCards.length; ++i) {
-				if (this.mCards[i].mCardAttack == "9") { // if the card is a "9" (knight)
-					++knights;
-				}
-				else if (this.mCards[i].mCardAttack == "S") { // otherwise if the card is an "S" (being of light)
-					if (this.mCards[i].mMimic != null) { // if being of light was played using its ability
-						if (this.mCards[i].mMimic.mCardAttack == "9") { // if the card was played as a knight
-							++knights;
-						}
-					}
-				}
-			}
-			
-			c.mCardValue = 3;
-			c.ModifyValue(knights);
-			c.PositionValueText();
+	this.HandlePeasant(c, 1);
+	this.mCards.push(c); // add it to the cards array
+	
+	{
+		if (this.mCards.length == 2) { // if we now have more than 1 card in the graveyard
+			this.mCard.mCardBacks[1].SetPosition(new Vec2(254, 206));
+			this.mCard.mCardBacks[2].SetPosition(new Vec2(254, 206));
 		}
 	}
-	
-	this.mCards.push(c); // add it to the cards array
 	
 	{ // handle viewing cards
 		var found = false; // did we find a matching card in the viewing cards array
@@ -7570,12 +7678,19 @@ OogaahGraveyard.prototype.AddCard = function(card) {
 				}
 			}
 			
-			if (cardOther.mCardAttack == attack) { // if the attacks match
+			var otherAttack = cardOther.mCardAttack;
+			if (otherAttack == "S") {
+				if (cardOther.mMimic != null) {
+					otherAttack = cardOther.mMimic.mCardAttack;
+				}
+			}
+			
+			if (otherAttack == attack) { // if the attacks match
 				id = i; // set the id to this index
 				found = true; // we found a match
 				break; // stop looking
 			}
-			else if (noogaah.AVToIndex(cardOther.mCardAttack) > noogaah.AVToIndex(attack)) { // ordered, so if greater then doesn't exist
+			else if (noogaah.AVToIndex(otherAttack) > noogaah.AVToIndex(attack)) { // ordered, so if greater then doesn't exist
 				id = i; // set the id to this index
 				break; // stop looking
 			}
@@ -7604,41 +7719,7 @@ OogaahGraveyard.prototype.AddCard = function(card) {
 			}
 			else if (cardNew.mCardAttack == "S") {
 				if (cardNew.mMimic != null) {
-					// medium
-					cardNew.mSplitShape[1].SetOrigin(new Vec2(0, cardNew.mCardSprites[1].mSize.mY));
-					cardNew.mSplitShape[1].SetPosition(new Vec2(220 + cardNew.mCardSprites[1].mSize.mX, 259));
-					cardNew.mSplitShape[1].mDepth = cardNew.mCardSprites[1].mDepth;
-					
-					cardNew.mSplitShapeLine[1].SetOrigin(new Vec2(0, cardNew.mCardSprites[1].mSize.mY));
-					cardNew.mSplitShapeLine[1].SetPosition(new Vec2(220, 259 + cardNew.mCardSprites[1].mSize.mY));
-					cardNew.mSplitShapeLine[1].mDepth = cardNew.mCardSprites[1].mDepth;
-					
-					var mimicMed = cardNew.mMimic.mCardSprites[1];
-					mimicMed.SetRotation(0);
-					mimicMed.SetPosition(new Vec2(-cardNew.mCardSprites[1].mSize.mX, 0));
-					mimicMed.SetOrigin(new Vec2());
-					mimicMed.mDepth = cardNew.mCardSprites[1].mDepth;
-					cardNew.mSplitShape[1].mSprite = mimicMed;
-					
-					// small
-					cardNew.mSplitShape[2].SetOrigin(new Vec2(0, cardNew.mCardSprites[2].mSize.mY));
-					cardNew.mSplitShape[2].SetPosition(new Vec2(220 + cardNew.mCardSprites[2].mSize.mX, 259));
-					cardNew.mSplitShape[2].mDepth = cardNew.mCardSprites[2].mDepth;
-					
-					cardNew.mSplitShapeLine[2].SetOrigin(new Vec2(0, cardNew.mCardSprites[2].mSize.mY));
-					cardNew.mSplitShapeLine[2].SetPosition(new Vec2(220, 259 + cardNew.mCardSprites[2].mSize.mY));
-					cardNew.mSplitShapeLine[2].mDepth = cardNew.mCardSprites[2].mDepth;
-					
-					var mimicSml = cardNew.mMimic.mCardSprites[2];
-					mimicSml.SetRotation(0);
-					mimicSml.SetPosition(new Vec2(-cardNew.mCardSprites[2].mSize.mX, 0));
-					mimicSml.SetOrigin(new Vec2());
-					mimicSml.mDepth = cardNew.mCardSprites[2].mDepth;
-					cardNew.mSplitShape[2].mSprite = mimicSml;
-					
-					if (cardNew.mMimic.mCardAttack == "3" || cardNew.mMimic.mCardAttack == "C") {
-						cardNew.PositionValueText();
-					}
+					cardNew.PositionClip();
 				}
 			}
 			
@@ -7664,21 +7745,7 @@ OogaahGraveyard.prototype.AddCard = function(card) {
 				}
 				else if (this.mViewCards[id][i].mCard.mCardAttack == "S") {
 					if (this.mViewCards[id][i].mCard.mMimic != null) {
-						// medium
-						this.mViewCards[id][i].mCard.mSplitShape[1].SetPosition(new Vec2(pos.mX +
-								this.mViewCards[id][i].mCard.mCardSprites[1].mSize.mX, pos.mY));
-						this.mViewCards[id][i].mCard.mSplitShapeLine[1].SetPosition(new Vec2(pos.mX,
-								pos.mY + this.mViewCards[id][i].mCard.mCardSprites[1].mSize.mY));
-						
-						// small
-						this.mViewCards[id][i].mCard.mSplitShape[2].SetPosition(new Vec2(pos.mX +
-								this.mViewCards[id][i].mCard.mCardSprites[2].mSize.mX, pos.mY));
-						this.mViewCards[id][i].mCard.mSplitShapeLine[2].SetPosition(new Vec2(pos.mX,
-								pos.mY + this.mViewCards[id][i].mCard.mCardSprites[2].mSize.mY));
-						
-						if (this.mViewCards[id][i].mCard.mMimic.mCardAttack == "3" || this.mViewCards[id][i].mCard.mMimic.mCardAttack == "C") {
-							this.mViewCards[id][i].mCard.PositionValueText();
-						}
+						this.mViewCards[id][i].mCard.PositionClip();
 					}	
 				}
 				
@@ -7705,46 +7772,15 @@ OogaahGraveyard.prototype.RemoveCard = function(id) {
 	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
 	
 	if (id >= 0 && id < this.mCards.length) { // if card id is valid
-		{ // handle human peasant ability (which activates when a human knight leaves the graveyard)
-			var knight = false;
-			if (this.mCards[id].mCardAttack == "9") { // if the card is a "9" (knight)
-				knight = true; // it was a knight
-			}
-			else if (this.mCards[id].mCardAttack == "S") { // otherwise if the card is an "S" (being of light)
-				if (this.mCards[id].mMimic != null) { // if being of light was played using its ability
-					if (this.mCards[id].mMimic.mCardAttack == "9") { // if the card was played as a knight
-						knight = true; // it was a knight
-					}
-				}
-			}
-			
-			if (knight == true) { // if it was a knight that was added
-				for (var i = 0; i < currScene.mPlayers.length; ++i) { // for all players
-					var hand = currScene.mPlayers[i].mHand; // reference to current hand
-					for (var j = 0; j < hand.mCards.length; ++j) { // for all cards in the hand
-						if (hand.mCards[j].mCardAttack == "3") { // if the card is a "3" (human peasant)
-							hand.mCards[j].ModifyValue(-1); // update the card's value
-						}
-					}
-					
-					currScene.mPlayers[i].PositionHand();
-				}
-				
-				for (var i = 0; i < this.mViewCards.length; ++i) {
-					for (var j = 0; j < this.mViewCards[i].length; ++j) {
-						if (this.mViewCards[i][j].mCard.mCardAttack == "3") { // if the card is a "3" (peasant)
-							this.mViewCards[i][j].mCard.ModifyValue(-1);
-							this.mViewCards[i][j].mCard.PositionValueText();
-							
-							this.mCards[this.mViewCards[i][j].mIndex].ModifyValue(-1);
-							this.mCards[this.mViewCards[i][j].mIndex].PositionValueText();
-						}
-					}
-				}
+		this.HandlePeasant(this.mCards[id], -1);
+		this.mCards.splice(id, 1); // remove the card from the array
+		
+		{
+			if (this.mCards.length == 1) { // if we now have more than 1 card in the graveyard
+				this.mCard.mCardBacks[1].SetPosition(new Vec2(256, 208));
+				this.mCard.mCardBacks[2].SetPosition(new Vec2(256, 208));
 			}
 		}
-		
-		this.mCards.splice(id, 1); // remove the card from the array
 		
 		{ // handle viewing cards
 			var index = 0; // the index of the card array which held the card we removed
@@ -7785,21 +7821,7 @@ OogaahGraveyard.prototype.RemoveCard = function(id) {
 					}
 					else if (this.mViewCards[index][i].mCard.mCardAttack == "S") {
 						if (this.mViewCards[index][i].mCard.mMimic != null) {
-							// medium
-							this.mViewCards[index][i].mCard.mSplitShape[1].SetPosition(new Vec2(pos.mX +
-									this.mViewCards[index][i].mCard.mCardSprites[1].mSize.mX, pos.mY));
-							this.mViewCards[index][i].mCard.mSplitShapeLine[1].SetPosition(new Vec2(pos.mX,
-									pos.mY + this.mViewCards[index][i].mCard.mCardSprites[1].mSize.mY));
-							
-							// small
-							this.mViewCards[index][i].mCard.mSplitShape[2].SetPosition(new Vec2(pos.mX +
-									this.mViewCards[index][i].mCard.mCardSprites[2].mSize.mX, pos.mY));
-							this.mViewCards[index][i].mCard.mSplitShapeLine[2].SetPosition(new Vec2(pos.mX,
-									pos.mY + this.mViewCards[index][i].mCard.mCardSprites[2].mSize.mY));
-							
-							if (this.mViewCards[index][i].mCard.mMimic.mCardAttack == "3" || this.mViewCards[index][i].mCard.mMimic.mCardAttack == "C") {
-								this.mViewCards[index][i].mCard.PositionValueText();
-							}
+							this.mViewCards[index][i].mCard.PositionClip();
 						}	
 					}
 					
@@ -7847,13 +7869,13 @@ OogaahGraveyard.prototype.SetUp = function() {
 		
 		// set up medium bundle sprite
 		this.mBundleSprites[1].SetTexture(texBundleMedium);
-		this.mBundleSprites[1].SetPosition(new Vec2(256, 208));
+		this.mBundleSprites[1].SetPosition(new Vec2(254, 206));
 		this.mBundleSprites[1].SetOrigin(new Vec2(Math.round(this.mBundleSprites[1].GetSize().mX / 2),
 				Math.round(this.mBundleSprites[1].GetSize().mY / 2)));
 		
 		// set up small bundle sprite
 		this.mBundleSprites[2].SetTexture(texBundleSmall);
-		this.mBundleSprites[2].SetPosition(new Vec2(256, 208));
+		this.mBundleSprites[2].SetPosition(new Vec2(254, 206));
 		this.mBundleSprites[2].SetOrigin(new Vec2(Math.round(this.mBundleSprites[2].GetSize().mX / 2),
 				Math.round(this.mBundleSprites[2].GetSize().mY / 2)));
 	}
@@ -8015,6 +8037,96 @@ OogaahGraveyard.prototype.SetView = function(view) {
 		this.mViewIndex = 0;
 	}
 }
+
+OogaahGraveyard.prototype.HandlePeasant = function(card, action) {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to current scene
+	
+	{
+		var attack = card.mCardAttack; // store the card's attack
+		if (card.mCardAttack == "S") { // if the card is a being of energy
+			if (card.mMimic != null) {
+				attack = card.mMimic.mCardAttack;
+			}
+		}
+		
+		if (attack == "9") { // human knight
+			{ // handle player's hands
+				for (var i = 0; i < currScene.mPlayers.length; ++i) { // for all players
+					var hand = currScene.mPlayers[i].mHand; // store reference to player's hand
+					for (var j = 0; j < hand.mCards.length; ++j) { // for all cards in hand
+						if (hand.mCards[j].mCardAttack == "3") { // if card is a human peasant
+							hand.mCards[j].ModifyValue(action); // add 1 to value
+							hand.mCards[j].PositionValueText(); // reposition
+						}
+					}
+				}
+			}
+			
+			{ // handle the graveyard
+				for (var i = 0; i < this.mCards.length; ++i) { // for all cards in graveyard
+					if (this.mCards[i].mCardAttack == "3") { // if card is a human peasant
+						this.mCards[i].ModifyValue(action); // add 1 to value
+						this.mCards[i].PositionValueText(); // reposition
+					}
+					else if (this.mCards[i].mCardAttack == "S") { // if card is a being of energy
+						if (this.mCards[i].mMimic != null) { // and was played using its ability
+							if (this.mCards[i].mMimic.mCardAttack == "3") { // and was played as a human peasant
+								this.mCards[i].mMimic.ModifyValue(action); // add 1 to value
+								this.mCards[i].PositionValueText(); // reposition
+							}
+						}
+					}
+				}
+				
+				for (var i = 0; i < this.mViewCards.length; ++i) {
+					for (var j = 0; j < this.mViewCards[i].length; ++j) {
+						if (this.mViewCards[i][j].mCard.mCardAttack == "3") { // if card is a human peasant
+							this.mViewCards[i][j].mCard.ModifyValue(action); // add 1 to value
+							this.mViewCards[i][j].mCard.PositionValueText(); // reposition
+						}
+						else if (this.mViewCards[i][j].mCard.mCardAttack == "S") { // if card is a being of energy
+							if (this.mViewCards[i][j].mCard.mMimic != null) { // and was played using its ability
+								if (this.mViewCards[i][j].mCard.mMimic.mCardAttack == "3") { // and was played as a human peasant
+									this.mViewCards[i][j].mCard.mMimic.ModifyValue(action); // add 1 to value
+									this.mViewCards[i][j].mCard.PositionValueText(); // reposition
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		else if (attack == "3") { // adding a human peasant
+			if (action == 1) {
+				var knights = 0;
+				
+				for (var i = 0; i < this.mCards.length; ++i) { // for all cards in graveyard
+					if (this.mCards[i].mCardAttack == "9") { // if card is a human knight
+						++knights;
+					}
+					else if (this.mCards[i].mCardAttack == "S") { // if card is a being of energy
+						if (this.mCards[i].mMimic != null) { // and was played using its ability
+							if (this.mCards[i].mMimic.mCardAttack == "9") { // and was played as a human knight
+								++knights;
+							}
+						}
+					}
+				}
+				
+				if (card.mCardAttack == "3") { // if card is a peasant
+					card.mCardValue = 3; // reset value to default
+					card.ModifyValue(knights);
+					card.PositionValueText();
+				}
+				else if (card.mCardAttack == "S") { // otherwise if card is a being of energy
+					card.mMimic.mCardValue = 3; // reset value to default
+					card.mMimic.ModifyValue(knights);
+					card.PositionValueText();
+				}
+			}
+		}
+	}
+}
 // ...End
 
 
@@ -8056,41 +8168,7 @@ OogaahBattlefield.prototype.AddCard = function(card) {
 	}
 	else if (c.mCardAttack == "S") {
 		if (c.mMimic != null) {
-			// medium
-			c.mSplitShape[1].SetOrigin(new Vec2(Math.round(medSpr.mSize.mX / 2), Math.round(medSpr.mSize.mY / 2)));
-			c.mSplitShape[1].SetPosition(new Vec2(pos.mX + medSpr.mSize.mX, pos.mY));
-			c.mSplitShape[1].mDepth = medSpr.mDepth;
-			
-			c.mSplitShapeLine[1].SetOrigin(new Vec2(Math.round(medSpr.mSize.mX / 2), Math.round(medSpr.mSize.mY / 2)));
-			c.mSplitShapeLine[1].SetPosition(new Vec2(pos.mX, pos.mY + medSpr.mSize.mY));
-			c.mSplitShapeLine[1].mDepth = medSpr.mDepth;
-			
-			var mimicMed = c.mMimic.mCardSprites[1];
-			mimicMed.SetRotation(0);
-			mimicMed.SetPosition(new Vec2(-medSpr.mSize.mX, 0));
-			mimicMed.SetOrigin(new Vec2());
-			mimicMed.mDepth = medSpr.mDepth; 
-			c.mSplitShape[1].mSprite = mimicMed;
-			
-			// small
-			c.mSplitShape[2].SetOrigin(new Vec2(Math.round(smlSpr.mSize.mX / 2), Math.round(smlSpr.mSize.mY / 2)));
-			c.mSplitShape[2].SetPosition(new Vec2(pos.mX + smlSpr.mSize.mX, pos.mY));
-			c.mSplitShape[2].mDepth = smlSpr.mDepth;
-			
-			c.mSplitShapeLine[2].SetOrigin(new Vec2(Math.round(smlSpr.mSize.mX / 2), Math.round(smlSpr.mSize.mY / 2)));
-			c.mSplitShapeLine[2].SetPosition(new Vec2(pos.mX, pos.mY + smlSpr.mSize.mY));
-			c.mSplitShapeLine[2].mDepth = smlSpr.mDepth;
-			
-			var mimicSml = c.mMimic.mCardSprites[2];
-			mimicSml.SetRotation(0);
-			mimicSml.SetPosition(new Vec2(-smlSpr.mSize.mX, 0));
-			mimicSml.SetOrigin(new Vec2());
-			mimicSml.mDepth = smlSpr.mDepth; 
-			c.mSplitShape[2].mSprite = mimicSml;
-			
-			if (c.mMimic.mCardAttack == "3" || c.mMimic.mCardAttack == "C") {
-				c.PositionValueText();
-			}
+			c.PositionClip();
 		}
 	}
 	
@@ -8458,14 +8536,7 @@ OogaahHuman.prototype.SelectedControl = function() {
 		if (this.mHand.mCards[this.mCurrentHighlight].mCardAttack == "3" ||
 				this.mHand.mCards[this.mCurrentHighlight].mCardAttack == "C") {
 			
-			// reposition the cards value text (due to ability)
-			this.mHand.mCards[this.mCurrentHighlight].mValueText[2].SetPosition(new Vec2(
-					this.mHand.mCards[this.mCurrentHighlight].mValueText[2].mPos.mX,
-					this.mHand.mCards[this.mCurrentHighlight].mValueText[2].mPos.mY - 40));
-			
-			this.mHand.mCards[this.mCurrentHighlight].mValueText[1].SetPosition(new Vec2(
-					this.mHand.mCards[this.mCurrentHighlight].mValueText[1].mPos.mX,
-					this.mHand.mCards[this.mCurrentHighlight].mValueText[1].mPos.mY - 40));
+			this.mHand.mCards[this.mCurrentHighlight].PositionValueText();
 		}
 		
 		// reposition the highlight sprites
@@ -8484,7 +8555,8 @@ OogaahHuman.prototype.SelectedControl = function() {
 				for (var i = 0; i < this.mHand.mCards.length; ++i) { // for all cards in the hand
 					if (this.mSelectedCards[i] == 1) { // if card is selectable
 						// if card doesn't match this and isn't an S
-						if (this.mHand.mCards[i].mCardValue != this.mHand.mCards[this.mCurrentHighlight].mCardValue &&
+						if ((this.mHand.mCards[i].mCardAttack != this.mHand.mCards[this.mCurrentHighlight].mCardAttack ||
+								this.mHand.mCards[i].mCardValue != this.mHand.mCards[this.mCurrentHighlight].mCardValue) &&
 								this.mHand.mCards[i].mCardAttack != "S") {
 							
 							this.mSelectedCards[i] = 0; // card can no longer be selected
@@ -8518,13 +8590,7 @@ OogaahHuman.prototype.SelectedControl = function() {
 		if (this.mHand.mCards[this.mCurrentHighlight].mCardAttack == "3" ||
 				this.mHand.mCards[this.mCurrentHighlight].mCardAttack == "C") {
 			
-			this.mHand.mCards[this.mCurrentHighlight].mValueText[2].SetPosition(new Vec2(
-					this.mHand.mCards[this.mCurrentHighlight].mValueText[2].mPos.mX,
-					this.mHand.mCards[this.mCurrentHighlight].mValueText[2].mPos.mY + 40));
-			
-			this.mHand.mCards[this.mCurrentHighlight].mValueText[1].SetPosition(new Vec2(
-					this.mHand.mCards[this.mCurrentHighlight].mValueText[1].mPos.mX,
-					this.mHand.mCards[this.mCurrentHighlight].mValueText[1].mPos.mY + 40));
+			this.mHand.mCards[this.mCurrentHighlight].PositionValueText();
 		}
 		
 		// reposition the highlight sprites
@@ -9011,7 +9077,7 @@ OogaahHumanUI.prototype.SetUp = function(owner) {
 	this.mHuman = owner; // store the reference to the human this gui belongs to
 	
 	{
-		var fnt = nmgrs.resMan.mFontStore.GetResource("poetsen");
+		var fnt = nmgrs.resMan.mFontStore.GetResource("kingthings");
 		
 		this.mFadeShape.SetPosition(new Vec2(0, 0));
 		this.mFadeShape.AddPoint(new Vec2(nmain.game.mCanvasSize.mX, 0));
@@ -9033,7 +9099,7 @@ OogaahHumanUI.prototype.SetUp = function(owner) {
 	}
 	
 	{
-		var fnt = nmgrs.resMan.mFontStore.GetResource("poetsen");
+		var fnt = nmgrs.resMan.mFontStore.GetResource("kingthings");
 		
 		this.mMessageShape.MakeRectangle(new Vec2(2, 60), new Vec2(nmain.game.mCanvasSize.mX - 4, + 36));
 		this.mMessageShape.mDepth = -10;
@@ -9052,7 +9118,7 @@ OogaahHumanUI.prototype.SetUp = function(owner) {
 	
 	{
 		// textures for ui buttons and font for button text
-		var fnt = nmgrs.resMan.mFontStore.GetResource("poetsen");
+		var fnt = nmgrs.resMan.mFontStore.GetResource("kingthings");
 		var texLarge = nmgrs.resMan.mTexStore.GetResource("buttonLarge");
 		var texSmall = nmgrs.resMan.mTexStore.GetResource("buttonSmall");
 		
@@ -9068,13 +9134,19 @@ OogaahHumanUI.prototype.SetUp = function(owner) {
 			
 			// set up the button text
 			this.mButtonText[0].SetFont(fnt);
-			this.mButtonText[0].SetFontSize(14);
-			this.mButtonText[0].SetPosition(new Vec2(pos.mX + 54, pos.mY + 5));
+			this.mButtonText[0].SetFontSize(19);
+			this.mButtonText[0].SetPosition(new Vec2(pos.mX + 54, pos.mY));
 			this.mButtonText[0].mAbsolute = true;
 			this.mButtonText[0].mDepth = 0;
 			this.mButtonText[0].mColour = "#FFFFFF";
 			this.mButtonText[0].mAlign = "centre";
 			this.mButtonText[0].SetString("Play");
+			
+			this.mButtonText[0].mShadow = true;
+			this.mButtonText[0].mShadowColour = "#090B0D";
+			this.mButtonText[0].mShadowAlpha = 0.5;
+			this.mButtonText[0].mShadowBlur = 2;
+			this.mButtonText[0].mShadowOffset.Set(2, 2);
 			
 			// set up the button front image (cover)
 			this.mButtonCovers[0].SetUp(pos, new Vec2(109, 29), 0);
@@ -9093,13 +9165,19 @@ OogaahHumanUI.prototype.SetUp = function(owner) {
 			this.mButtons[1].mSpriteInactive.SetTexture(texLarge, 8, 2, -1, -1); this.mButtons[1].mSpriteInactive.SetCurrentFrame(6);
 			
 			this.mButtonText[1].SetFont(fnt);
-			this.mButtonText[1].SetFontSize(14);
-			this.mButtonText[1].SetPosition(new Vec2(pos.mX + 54, pos.mY + 5));
+			this.mButtonText[1].SetFontSize(19);
+			this.mButtonText[1].SetPosition(new Vec2(pos.mX + 54, pos.mY));
 			this.mButtonText[1].mAbsolute = true;
 			this.mButtonText[1].mDepth = 0;
 			this.mButtonText[1].mColour = "#FFFFFF";
 			this.mButtonText[1].mAlign = "centre";
 			this.mButtonText[1].SetString("Pass");
+			
+			this.mButtonText[1].mShadow = true;
+			this.mButtonText[1].mShadowColour = "#090B0D";
+			this.mButtonText[1].mShadowAlpha = 0.5;
+			this.mButtonText[1].mShadowBlur = 2;
+			this.mButtonText[1].mShadowOffset.Set(2, 2);
 			
 			this.mButtonCovers[1].SetUp(pos, new Vec2(109, 29), 0);
 			this.mButtonCovers[1].mSpriteIdle.SetTexture(texLarge, 8, 2, -1, -1); this.mButtonCovers[1].mSpriteIdle.SetCurrentFrame(1);
@@ -9117,13 +9195,19 @@ OogaahHumanUI.prototype.SetUp = function(owner) {
 			this.mButtons[2].mSpriteInactive.SetTexture(texSmall, 4, 1, -1, -1); this.mButtons[2].mSpriteInactive.SetCurrentFrame(6);
 			
 			this.mButtonText[2].SetFont(fnt);
-			this.mButtonText[2].SetFontSize(14);
-			this.mButtonText[2].SetPosition(new Vec2(pos.mX + 14, pos.mY + 6));
+			this.mButtonText[2].SetFontSize(19);
+			this.mButtonText[2].SetPosition(new Vec2(pos.mX + 14, pos.mY + 1));
 			this.mButtonText[2].mAbsolute = true;
 			this.mButtonText[2].mDepth = 0;
 			this.mButtonText[2].mColour = "#FFFFFF";
 			this.mButtonText[2].mAlign = "centre";
 			this.mButtonText[2].SetString("?");
+			
+			this.mButtonText[2].mShadow = true;
+			this.mButtonText[2].mShadowColour = "#694343";
+			this.mButtonText[2].mShadowAlpha = 0.5;
+			this.mButtonText[2].mShadowBlur = 2;
+			this.mButtonText[2].mShadowOffset.Set(2, 2);
 		}
 		
 		{ // options button
@@ -9135,13 +9219,19 @@ OogaahHumanUI.prototype.SetUp = function(owner) {
 			this.mButtons[3].mSpriteInactive.SetTexture(texSmall, 4, 1, -1, -1); this.mButtons[3].mSpriteInactive.SetCurrentFrame(6);
 			
 			this.mButtonText[3].SetFont(fnt);
-			this.mButtonText[3].SetFontSize(14);
-			this.mButtonText[3].SetPosition(new Vec2(pos.mX + 14, pos.mY + 5));
+			this.mButtonText[3].SetFontSize(19);
+			this.mButtonText[3].SetPosition(new Vec2(pos.mX + 14, pos.mY + 2));
 			this.mButtonText[3].mAbsolute = true;
 			this.mButtonText[3].mDepth = 0;
 			this.mButtonText[3].mColour = "#FFFFFF";
 			this.mButtonText[3].mAlign = "centre";
 			this.mButtonText[3].SetString("O");
+			
+			this.mButtonText[3].mShadow = true;
+			this.mButtonText[3].mShadowColour = "#694343";
+			this.mButtonText[3].mShadowAlpha = 0.5;
+			this.mButtonText[3].mShadowBlur = 2;
+			this.mButtonText[3].mShadowOffset.Set(2, 2);
 		}
 	}
 	
@@ -9203,6 +9293,7 @@ OogaahHumanUI.prototype.Process = function() {
 		// update button text colour depending on button state
 		if (this.mButtons[i].mActive == false) {
 			this.mButtonText[i].mColour = "#888888";
+			this.mButtonText[i].mShadow = false;
 		}
 		else {
 			if (this.mButtons[i].mStatus == "idle") {
@@ -10791,7 +10882,7 @@ OogaahOptionsScene.prototype.SetUp = function() {
 	
 	{
 		var tex = nmgrs.resMan.mTexStore.GetResource("buttonLarge");
-		var fnt = nmgrs.resMan.mFontStore.GetResource("poetsen");
+		var fnt = nmgrs.resMan.mFontStore.GetResource("kingthings");
 		
 		this.mBackButton.SetUp(new Vec2(265, 424), new Vec2(109, 29), 0);
 		this.mBackButton.mSpriteIdle.SetTexture(tex, 8, 2, -1, -1); this.mBackButton.mSpriteIdle.SetCurrentFrame(0);
@@ -11085,6 +11176,451 @@ OogaahOptions.prototype.ResetOptions = function() {
 // ...End
 
 
+
+// OogaahExampleMessage Class...
+// 
+function OogaahExampleMessage() {
+	this.mPos = new Vec2();
+	this.mSize = new Vec2();
+	
+	this.mCanContinue = true;
+	this.mArrowDirection = -1;
+	
+	this.mShape = new Shape();
+	this.mShapeInnerOutline = new Shape();
+	this.mShapeOuterOutline = new Shape();
+	this.mShapeBack = new Shape();
+	this.mShapeArrow = new Shape();
+	
+	this.mText = new Text();
+	this.mTextContinue = new Text();
+	
+	{
+		this.mShape.mColour = "#111111";
+		this.mShape.mAlpha = 0.95;
+		this.mShape.mDepth = -1000;
+		
+		this.mShapeInnerOutline.mColour = "#111111";
+		this.mShapeInnerOutline.mRenderStyle = "LineLoop";
+		this.mShapeInnerOutline.mLineWidth = 3;
+		this.mShapeInnerOutline.mDepth = -1000;
+		
+		this.mShapeOuterOutline.mColour = "#CD4242";
+		this.mShapeOuterOutline.mRenderStyle = "LineLoop";
+		this.mShapeOuterOutline.mLineWidth = 8;
+		this.mShapeOuterOutline.mDepth = -1000;
+		
+		this.mShapeBack.mColour = "#000000";
+		this.mShapeBack.mAlpha = 0.4;
+		this.mShapeBack.mDepth = -1000;
+		
+		var fnt = nmgrs.resMan.mFontStore.GetResource("kingthings");
+		this.mText.SetOrigin(new Vec2(-5, 0));
+		this.mText.SetFont(fnt);
+		this.mText.SetFontSize(16);
+		this.mText.mAlign = "justify";
+		this.mText.mDepth = -1000;
+		this.mText.mVSpacing = 0.9;
+		
+		this.mTextContinue.SetFont(fnt);
+		this.mTextContinue.SetFontSize(16);
+		this.mTextContinue.mAlign = "right";
+		this.mTextContinue.mDepth = -1000;
+		this.mTextContinue.SetString("Left click to continue...");
+	}
+};
+
+OogaahExampleMessage.prototype.CreateMessage = function() {
+	var arr = new Array();
+	arr.push(new Vec2(this.mSize.mX, 0));
+	arr.push(new Vec2(this.mSize.mX, this.mSize.mY + 20));
+	arr.push(new Vec2(0, this.mSize.mY + 20));
+	
+	if (this.mArrowDirection >= 0) {
+		for (var i = 0; i < this.mShapeArrow.mPoints.length; ++i) {
+			var v = this.mShapeArrow.mPoints[i].GetCopy();
+			arr.splice(this.mArrowDirection, 0, v);
+		}
+	}
+	
+	this.mShape.Clear();
+	this.mShape.SetPosition(this.mPos);
+	this.mShape.AddPoints(arr);
+	
+	this.mShapeInnerOutline.Clear();
+	this.mShapeInnerOutline.SetPosition(this.mPos);
+	this.mShapeInnerOutline.AddPoints(arr);
+	
+	this.mShapeOuterOutline.Clear();
+	this.mShapeOuterOutline.SetPosition(this.mPos);
+	this.mShapeOuterOutline.AddPoints(arr);
+	
+	{
+		var thickness = 14;
+		
+		this.mShapeBack.Clear();
+		this.mShapeBack.SetPosition(new Vec2(this.mPos.mX, this.mPos.mY - thickness));
+		this.mShapeBack.AddPoint(new Vec2(this.mSize.mX, 0));
+		this.mShapeBack.AddPoint(new Vec2(this.mSize.mX + thickness, thickness));
+		this.mShapeBack.AddPoint(new Vec2(this.mSize.mX + thickness, this.mSize.mY + 20 + thickness));
+		this.mShapeBack.AddPoint(new Vec2(this.mSize.mX, this.mSize.mY + 20 + (thickness * 2)));
+		this.mShapeBack.AddPoint(new Vec2(0, this.mSize.mY + 20 + (thickness * 2)));
+		this.mShapeBack.AddPoint(new Vec2(-thickness, this.mSize.mY + 20 + thickness));
+		this.mShapeBack.AddPoint(new Vec2(-thickness, thickness));
+	}
+}
+
+OogaahExampleMessage.prototype.SetArrow = function(direction, offset) {
+	this.mShapeArrow.Clear();
+	var offs = offset;
+	
+	switch (direction) {
+		case "up" :
+			if (offs > this.mSize.mX - 36) {
+				offs = this.mSize.mX - 36;
+			}
+			
+			this.mShapeArrow.AddPoint(new Vec2(offs, 0));
+			this.mShapeArrow.AddPoint(new Vec2(offs + 18, -16));
+			this.mShapeArrow.AddPoint(new Vec2(offs + 36, 0));
+			this.mArrowDirection = 0;
+			break;
+		case "right" :
+			if (offs > this.mSize.mY - 16) {
+				offs = this.mSize.mY - 16;
+			}
+			
+			this.mShapeArrow.AddPoint(new Vec2(this.mSize.mX, offs));
+			this.mShapeArrow.AddPoint(new Vec2(this.mSize.mX + 16, offs + 18));
+			this.mShapeArrow.AddPoint(new Vec2(this.mSize.mX, offs + 36));
+			this.mArrowDirection = 1;
+			break;
+		case "down" :
+			if (offs > this.mSize.mX - 36) {
+				offs = this.mSize.mX - 36;
+			}
+			
+			this.mShapeArrow.AddPoint(new Vec2(0 + offs, this.mSize.mY + 20));
+			this.mShapeArrow.AddPoint(new Vec2(0 + offs + 18, this.mSize.mY + 36));
+			this.mShapeArrow.AddPoint(new Vec2(0 + offs + 36, this.mSize.mY + 20));
+			this.mArrowDirection = 2;
+			break;
+		case "left" :
+			if (offs > this.mSize.mY - 16) {
+				offs = this.mSize.mY - 16;
+			}
+			
+			this.mShapeArrow.AddPoint(new Vec2(0, offs));
+			this.mShapeArrow.AddPoint(new Vec2(0 - 16, offs + 18));
+			this.mShapeArrow.AddPoint(new Vec2(0, offs + 36));
+			this.mArrowDirection = 3;
+			break;
+	}
+}
+// ...End
+
+
+// OogaahExampleMessageQueue Class...
+// 
+function OogaahExampleMessageQueue() {
+	this.mQueue = new Array();
+};
+
+OogaahExampleMessageQueue.prototype.PushMessage = function(pos, string, size, direction, offset) {
+	var msg = new OogaahExampleMessage();
+	
+	msg.mPos.Copy(pos);
+	msg.mSize.Copy(size);
+	msg.SetArrow(direction, offset);
+	
+	msg.mText.SetPosition(pos);
+	msg.mText.SetString(string);
+	msg.mText.EnableWrapping(size.mX - 10);
+	
+	msg.mTextContinue.SetPosition(pos);
+	msg.mTextContinue.SetOrigin(new Vec2(-size.mX + 5, -size.mY + 2));
+	
+	msg.CreateMessage();
+	
+	this.mQueue.push(msg);
+}
+
+OogaahExampleMessageQueue.prototype.PopMessage = function() {
+	if (this.mQueue.length > 0) {
+		this.mQueue.splice(0, 1);
+	}
+}
+
+OogaahExampleMessageQueue.prototype.Input = function() {
+	if (this.mQueue.length > 0) {
+		if (this.mQueue[0].mCanContinue == true) {
+			if (nmgrs.inputMan.GetMousePressed(nmouse.button.code.left) == true &&
+					nmgrs.inputMan.GetMouseInCanvas() == true) {
+				
+				this.PopMessage();
+			}
+		}
+	}
+}
+
+OogaahExampleMessageQueue.prototype.GetRenderData = function() {
+	var arr = new Array();
+	
+	if (this.mQueue.length > 0) {
+		arr.push(this.mQueue[0].mShapeBack);
+		
+		arr.push(this.mQueue[0].mShapeOuterOutline);
+		arr.push(this.mQueue[0].mShape);
+		arr.push(this.mQueue[0].mShapeInnerOutline);
+		
+		arr.push(this.mQueue[0].mText);
+		
+		if (this.mQueue[0].mCanContinue == true) {
+			arr.push(this.mQueue[0].mTextContinue);
+		}
+	}
+	
+	return arr;
+}
+// ...End
+
+
+// OogaahTutorialHuman class
+// 
+function OogaahTutorialHuman() {
+	OogaahHuman.apply(this, null); // construct the base class
+};
+
+// inherit the base class's prototype
+OogaahTutorialHuman.prototype = Object.create(OogaahHuman.prototype);
+
+// logic called when the play button is clicked in the player gui
+OogaahTutorialHuman.prototype.OnPlay = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+	
+	var match = true; // assume a match initially
+	var desired = new Array();
+	desired.push(currScene.mCardList[0]);
+	
+	{
+		var arr = new Array(); arr = util.ConcatArray(arr, this.GetSelected()); // get the currently selected cards
+		
+		if (arr.length == desired.length) { // if the lengths match then we potentially have a match
+			for (var i = 0; i < arr.length; ++i) { // for all cards in both arrays
+				// if the cards don't match
+				if (arr[i].mCardAttack != desired[i].mCardAttack && arr[i].mCardValue != desired[i].mCardValue) {
+					match = false; // indicated no match
+					break; // stop
+				}
+			}
+		}
+		else { // otherwise, mismatched lengths indicate no match
+			match = false;
+		}
+	}
+	
+	if (match == false) { // if we didn't get a match
+		// no dice, dummy!
+		alert("Invalid!");
+	}
+	else {
+	
+	}
+	
+	/* if (this.mMode == 5 && this.mSubMode == "b") { // if we are in goblin technician mode (submode b)
+		for (var i = 0; i < this.mHand.mCards.length; ++i) { // for all cards
+			this.mSelectedCards[i] = 3; // set cards to single-selectable (3)
+			this.mHand.mCards[i].mDarken = false;
+		}
+		
+		this.mGUI.mDisplayCard = null;
+		
+		// update player gui text
+		this.mGUI.mButtonText[0].SetString("Swap Card");
+		this.mGUI.ShowMessage(true, "Choose which card to swap or pass.");
+		
+		this.mSubMode = "c"; // change to submode c
+	}
+	else if (this.mMode == 6) { // otherwise if we are in orc shaman mode
+		currScene.mReversed = !currScene.mReversed; // reverse the current game values
+		
+		// update player gui text
+		this.mGUI.mButtonText[0].SetString("Play");
+		this.mGUI.ShowMessage(false);
+		
+		currScene.mLog.AddEntry(3, this.mName + " reversed card values for this skirmish."); // add entry to the play log
+		
+		this.mMode = 0; // reset to mode 0
+		this.ResetSelected(); // reset selected states
+		currScene.ChangePlayer(); // change to the next player
+		currScene.mDelay = 1000;
+	}
+	else { // otherwise we are in normal play
+		var arr = new Array(); arr = util.ConcatArray(arr, this.GetSelected()); // get the currently selected cards
+		if (arr.length > 0) { // if we have selected at least 1 card
+			arr[0].Play(arr); // play that/those cards
+			currScene.mDelay = 1000;
+		}
+	}
+	
+	if (this.mHand.mCards.length == 0 && this.mMode == 0 && this.mFinished == false) {
+		if (currScene.mFinishedCount == 0) {
+			currScene.mLog.AddEntry(7, this.mName + " achieved a flawless victory (1st)!"); // add entry to the play log
+		}
+		else if (currScene.mFinishedCount == 1) {
+			currScene.mLog.AddEntry(8, this.mName + " won a costly battle (2nd)!"); // add entry to the play log
+		}
+		else if (currScene.mFinishedCount == 2) {
+			currScene.mLog.AddEntry(9, this.mName + " yielded and limped home (3rd)!"); // add entry to the play log
+		}
+		
+		++currScene.mFinishedCount;
+		this.mFinished = true;
+	} */
+}
+
+// logic called when the pass button is clicked in the player gui
+OogaahTutorialHuman.prototype.OnPass = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+	
+	// check we want a pass
+	// if so do ur thang
+	
+	/* if (this.mMode == 2) { // if we are in goblin overseer mode
+		this.mGUI.mButtonText[0].SetString("Play");
+		this.mGUI.ShowMessage(false);
+		
+		currScene.mLog.AddEntry(4, this.mName + " chose not to play any Goblin Hordes."); // add entry to the play log
+		
+		this.mMode = 0; // reset to mode 0
+		this.ResetSelected(); // reset selected states
+		currScene.ChangePlayer(); // change to the next player
+		currScene.mDelay = 1000;
+	}
+	else if (this.mMode == 5) { // otherwise if we are in goblin technician mode
+		if (this.mSubMode == "a") { // if we are in submode a
+			for (var i = 0; i < 4; ++i) { // for all other players
+				if (i != this.mPlayerID) {
+					currScene.mPlayers[i].mSelectable = false; // set hand selection to false
+				}
+			}
+			
+			currScene.mGraveyard.mSelectable = false; // set graveyard selection to false
+			
+			this.mGUI.mButtons[0].mActive = true;
+			this.mGUI.mButtonCovers[0].mActive = true;
+			this.mGUI.ShowMessage(false);
+			
+			currScene.mLog.AddEntry(4, this.mName + " chose not to swap a card."); // add entry to the play log
+			
+			this.mMode = 0; // reset to mode 0
+			this.ResetSelected(); // reset selected states
+			currScene.ChangePlayer(); // change to the next player
+			currScene.mDelay = 1000;
+		}
+		else if (this.mSubMode == "b") { // otherwise if we are in submode b
+			// update player gui text
+			this.mGUI.mButtonText[0].SetString("Play");
+			this.mGUI.ShowMessage(false);
+			
+			// add entry to the play log
+			currScene.mLog.AddEntry(4, this.mName + " chose not to swap for a " +
+					this.mChosenPlayer.mCards[this.mChosenCard].mCardType + " " +
+					this.mChosenPlayer.mCards[this.mChosenCard].mCardName  + ".");
+			
+			this.mMode = 0; // reset to mode 0
+			this.mSubMode = "a"; // reset to submode a
+			
+			// reset goblin technician selection choices
+			this.mGUI.mDisplayCard = null;
+			this.mChosenPlayer = null;
+			this.mChosenID = -1;
+			this.mChosenCard = -1;
+			
+			this.ResetSelected(); // reset selected states
+			currScene.ChangePlayer(); // change to the next player
+			currScene.mDelay = 1000;
+		}
+		else if (this.mSubMode == "c") { // otherwise if we are in submode c
+			this.mGUI.mButtonText[0].SetString("Play");
+			this.mGUI.ShowMessage(false);
+			
+			currScene.mLog.AddEntry(4, this.mName + " cancelled the card swap."); // add entry to the play log
+			
+			this.mMode = 0; // reset to mode 0
+			this.mSubMode = "a"; // reset to submode a
+			
+			// reset goblin technician selection choices
+			this.mChosenPlayer = null;
+			this.mChosenID = -1;
+			this.mChosenCard = -1;
+			
+			this.ResetSelected(); // reset selected states
+			currScene.ChangePlayer(); // change to the next player
+			currScene.mDelay = 1000;
+		}
+	}
+	else if (this.mMode == 6) { // otherwise if we are in orc shaman mode
+		// update player gui text
+		this.mGUI.mButtonText[0].SetString("Play");
+		this.mGUI.ShowMessage(false);
+		
+		currScene.mLog.AddEntry(4, this.mName + " chose not to reverse card values for this skirmish."); // add entry to the play log
+		
+		this.mMode = 0; // reset to mode 0
+		this.ResetSelected(); // reset selected states
+		currScene.ChangePlayer(); // change to the next player
+		currScene.mDelay = 1000;
+	}
+	else if (this.mMode == 8) { // otherwise if we are in human mage mode
+		// update player gui text
+		this.mGUI.mButtonText[0].SetString("Play");
+		this.mGUI.ShowMessage(false);
+		
+		currScene.mLog.AddEntry(4, this.mName + " chose not to play a card alongside Human Mage."); // add entry to the play log
+		
+		this.mMode = 0; // reset to mode 0
+		this.ResetSelected(); // reset selected states
+		currScene.ChangePlayer(); // change to the next player
+		currScene.mDelay = 1000;
+	}
+	else if (this.mMode == 12) { // otherwise if we are in human paladin mode
+		if (this.mRecievedCount == 0) {
+			currScene.mLog.AddEntry(4, this.mName + " chose not to take any cards from the graveyard."); // add entry to the play log
+		}
+		else {
+			currScene.mLog.AddEntry(3, this.mName + " took " + this.mRecievedCount + "x " +
+					this.mRecievedCard.mCardType + " " + this.mRecievedCard.mCardName + " from the graveyard.");
+			
+			currScene.mGraveyard.mViewLeftButton.mActive = true;
+			currScene.mGraveyard.mViewRightButton.mActive = true;
+		}
+		
+		currScene.mGraveyard.SetView(false);
+		
+		this.mGUI.mButtons[0].mActive = true;
+		this.mGUI.mButtonCovers[0].mActive = true;
+		this.mGUI.ShowMessage(false);
+		
+		this.mRecievedCount = 0;
+		this.mRecievedCard = null;
+		
+		this.mMode = 0; // reset to mode 0
+		this.ResetSelected(); // reset selected states
+		currScene.ChangePlayer(); // change to the next player
+		currScene.mDelay = 1000;
+	}
+	else { // otherwise we are in normal play
+		currScene.mLog.AddEntry(2, this.mName + " passed."); // add entry to the play log
+		
+		this.ResetSelected(); // reset selected states
+		currScene.ChangePlayer(); // change to the next player
+		currScene.mDelay = 1000;
+	} */
+}
+// ...End
+
+
 // OogaahCardGoblinHorde class
 function OogaahCardGoblinHorde() {
 	OogaahCardBase.apply(this, null); // construct the base class
@@ -11156,6 +11692,7 @@ OogaahCardGoblinHorde.prototype.Play = function(cards) {
 			
 			if (cards[cards.length - 1].mCardAttack == "S") { // if the last card in the array is an S
 				cards[cards.length - 1].mMimic = this.GetCopy(); // set its mimic value
+				currScene.mLog.AddEntry(5, currPlayer.mName + " activated ability " + cards[cards.length - 1].mCardAbility + ".");
 			}
 			
 			currPlayer.RemoveSelected(); // remove cards from current player's hands
@@ -11275,6 +11812,7 @@ OogaahCardGoblinOverseer.prototype.Play = function(cards) {
 			
 			if (cards[cards.length - 1].mCardAttack == "S") { // if the last card in the array is an S
 				cards[cards.length - 1].mMimic = this.GetCopy(); // set its mimic value
+				currScene.mLog.AddEntry(5, currPlayer.mName + " activated ability " + cards[cards.length - 1].mCardAbility + ".");
 			}
 			
 			currPlayer.RemoveSelected(); // remove cards from current player's hands
@@ -11348,21 +11886,42 @@ function OogaahCardHumanPeasant() {
 	this.mValueText[1] = new Text();
 	this.mValueText[2] = new Text();
 	
-	var fnt = nmgrs.resMan.mFontStore.GetResource("poetsen");
+	var fnt = nmgrs.resMan.mFontStore.GetResource("kingthings");
 	for (var i = 0; i < this.mValueText.length; ++i) {
 		this.mValueText[i].SetFont(fnt);
 		
-		this.mValueText[i].mAlign = "right";
+		this.mValueText[i].mAlign = "centre";
 		this.mValueText[i].mAbsolute = true;
-		this.mValueText[i].mDepth = 0;
-		this.mValueText[i].mColour = "#FFFFFF";
+		this.mValueText[i].mColour = "#81BD1C";
+		
+		this.mValueText[i].mShadow = true;
+		this.mValueText[i].mShadowColour = "#498E1F";
 	}
 	
-	this.mValueText[0].SetFontSize(38);
-	this.mValueText[1].SetFontSize(22);
-	this.mValueText[2].SetFontSize(14);
+	this.mValueText[0].SetFontSize(82);
+	this.mValueText[1].SetFontSize(38);
+	this.mValueText[1].mShadowAlpha = 0.5;
+	this.mValueText[2].SetFontSize(22);
+	this.mValueText[2].mShadowAlpha = 0.3;
+	
+	this.mSplitShape = new Array();
+	
+	{
+		this.mSplitShape[0] = new Shape();
+		this.mSplitShape[0].MakeCircle(new Vec2(), 33, 24);
+		this.mSplitShape[0].mColour = "#501616";
+		
+		this.mSplitShape[1] = new Shape();
+		this.mSplitShape[1].MakeCircle(new Vec2(), 15, 24);
+		this.mSplitShape[1].mColour = "#501616";
+		
+		this.mSplitShape[2] = new Shape();
+		this.mSplitShape[2].MakeCircle(new Vec2(), 9, 24);
+		this.mSplitShape[2].mColour = "#501616";
+	}
 	
 	this.ModifyValue(0);
+	this.PositionValueText();
 };
 
 // inherit the base class's prototype
@@ -11395,6 +11954,10 @@ OogaahCardHumanPeasant.prototype.Copy = function(other) {
 	this.mValueText[0].Copy(other.mValueText[0]);
 	this.mValueText[1].Copy(other.mValueText[1]);
 	this.mValueText[2].Copy(other.mValueText[2]);
+	
+	this.mSplitShape[0].Copy(other.mSplitShape[0]);
+	this.mSplitShape[1].Copy(other.mSplitShape[1]);
+	this.mSplitShape[2].Copy(other.mSplitShape[2]);
 }
 
 OogaahCardHumanPeasant.prototype.GetCopy = function() {
@@ -11410,6 +11973,7 @@ OogaahCardHumanPeasant.prototype.GetRenderData = function() {
 		arr.push(this.mCardSprites[this.mSize]);
 		
 		if (this.mCardValue - 3 > 0) { // if the card attack has been modified due to ability
+			arr.push(this.mSplitShape[this.mSize]);
 			arr.push(this.mValueText[this.mSize]); // display the appropiate modification
 		}
 	}
@@ -11442,6 +12006,7 @@ OogaahCardHumanPeasant.prototype.Play = function(cards) {
 			
 			if (cards[cards.length - 1].mCardAttack == "S") { // if the last card in the array is an S
 				cards[cards.length - 1].mMimic = this.GetCopy(); // set its mimic value
+				currScene.mLog.AddEntry(5, currPlayer.mName + " activated ability " + cards[cards.length - 1].mCardAbility + ".");
 			}
 			
 			if (orcWarrior == -1) { // if there is no orc warrior whose ability is active
@@ -11491,28 +12056,48 @@ OogaahCardHumanPeasant.prototype.ModifyValue = function(amount) {
 	this.mCardValue += amount; // change the card value by the amount
 	
 	for (var i = 0; i < this.mValueText.length; ++i) { // for all texts
-		this.mValueText[i].SetString("+" + (this.mCardValue - 3).toString()); // set the string to the new amount
+		this.mValueText[i].SetString(noogaah.IndexToAV(this.mCardValue - 1)); // set the string to the new amount
 	}
 }
 
 // 
 OogaahCardHumanPeasant.prototype.PositionValueText = function() {
 	var lrgSpr = this.mCardSprites[0];
-	this.mValueText[0].SetPosition(new Vec2(Math.round(nmain.game.mCanvasSize.mX / 3) + Math.round(lrgSpr.mSize.mX / 2) - 14,
-			Math.round(nmain.game.mCanvasSize.mY / 2) + Math.round(lrgSpr.mSize.mY / 2) - 108));
+	this.mValueText[0].SetPosition(new Vec2(Math.round(nmain.game.mCanvasSize.mX / 3) + Math.round(lrgSpr.mSize.mX / 2) - 59,
+			Math.round(nmain.game.mCanvasSize.mY / 2) + Math.round(lrgSpr.mSize.mY / 2) - 93));
 	this.mValueText[0].mDepth = lrgSpr.mDepth;
 	
 	var medSpr = this.mCardSprites[1];
 	var medPos = new Vec2(); medPos.Copy(medSpr.mPos);
 	medPos.mX -= medSpr.mOrigin.mX; medPos.mY -= medSpr.mOrigin.mY;
-	this.mValueText[1].SetPosition(new Vec2(medPos.mX + medSpr.mSize.mX - 4, medPos.mY + medSpr.mSize.mY - 52));
+	this.mValueText[1].SetPosition(new Vec2(medPos.mX + medSpr.mSize.mX - 26, medPos.mY + medSpr.mSize.mY - 42));
 	this.mValueText[1].mDepth = medSpr.mDepth;
 	
 	var smlSpr = this.mCardSprites[2];
 	var smlPos = new Vec2(); smlPos.Copy(smlSpr.mPos);
 	smlPos.mX -= smlSpr.mOrigin.mX; smlPos.mY -= smlSpr.mOrigin.mY;
-	this.mValueText[2].SetPosition(new Vec2(smlPos.mX + smlSpr.mSize.mX - 2, smlPos.mY + smlSpr.mSize.mY - 32));
+	this.mValueText[2].SetPosition(new Vec2(smlPos.mX + smlSpr.mSize.mX - 15, smlPos.mY + smlSpr.mSize.mY - 25));
 	this.mValueText[2].mDepth = smlSpr.mDepth;
+	
+	for (var i = 0; i < this.mCardSprites.length; ++i) {
+		this.mSplitShape[i].SetPosition(new Vec2(this.mCardSprites[i].mPos.mX + this.mCardSprites[i].mSize.mX,
+				this.mCardSprites[i].mPos.mY + this.mCardSprites[i].mSize.mY));
+		this.mSplitShape[i].SetOrigin(this.mCardSprites[i].mOrigin);
+	}
+	
+	{
+		var ss0 = this.mSplitShape[0];
+		ss0.SetPosition(new Vec2(ss0.mPos.mX - 56, ss0.mPos.mY - 40));
+		ss0.mDepth = lrgSpr.mDepth;
+		
+		var ss1 = this.mSplitShape[1];
+		ss1.SetPosition(new Vec2(ss1.mPos.mX - 26, ss1.mPos.mY - 18));
+		ss1.mDepth = medSpr.mDepth;
+		
+		var ss2 = this.mSplitShape[2];
+		ss2.SetPosition(new Vec2(ss2.mPos.mX - 15, ss2.mPos.mY - 10));
+		ss2.mDepth = smlSpr.mDepth;
+	}
 }
 // ...End
 
@@ -11585,6 +12170,7 @@ OogaahCardOrcWarrior.prototype.Play = function(cards) {
 			
 			if (cards[cards.length - 1].mCardAttack == "S") { // if the last card in the array is an S
 				cards[cards.length - 1].mMimic = this.GetCopy(); // set its mimic value
+				currScene.mLog.AddEntry(5, currPlayer.mName + " activated ability " + cards[cards.length - 1].mCardAbility + ".");
 			}
 			
 			if (currPlayer.mHand.mCards.length > 0) { // if player still has cards left in hand
@@ -11685,6 +12271,7 @@ OogaahCardGoblinTechnician.prototype.Play = function(cards) {
 			
 			if (cards[cards.length - 1].mCardAttack == "S") { // if the last card in the array is an S
 				cards[cards.length - 1].mMimic = this.GetCopy(); // set its mimic value
+				currScene.mLog.AddEntry(5, currPlayer.mName + " activated ability " + cards[cards.length - 1].mCardAbility + ".");
 			}
 			
 			currPlayer.RemoveSelected(); // remove cards from current player's hands
@@ -11810,6 +12397,7 @@ OogaahCardOrcShaman.prototype.Play = function(cards) {
 			
 			if (cards[cards.length - 1].mCardAttack == "S") { // if the last card in the array is an S
 				cards[cards.length - 1].mMimic = this.GetCopy(); // set its mimic value
+				currScene.mLog.AddEntry(5, currPlayer.mName + " activated ability " + cards[cards.length - 1].mCardAbility + ".");
 			}
 			
 			currPlayer.RemoveSelected(); // remove cards from current player's hands
@@ -11912,6 +12500,7 @@ OogaahCardHumanCleric.prototype.Play = function(cards) {
 			
 			if (cards[cards.length - 1].mCardAttack == "S") { // if the last card in the array is an S
 				cards[cards.length - 1].mMimic = this.GetCopy(); // set its mimic value
+				currScene.mLog.AddEntry(5, currPlayer.mName + " activated ability " + cards[cards.length - 1].mCardAbility + ".");
 			}
 			
 			if (orcWarrior == -1) { // if there is no orc warrior whose ability is active
@@ -12057,6 +12646,7 @@ OogaahCardHumanMage.prototype.Play = function(cards) {
 			
 			if (cards[cards.length - 1].mCardAttack == "S") { // if the last card in the array is an S
 				cards[cards.length - 1].mMimic = this.GetCopy(); // set its mimic value
+				currScene.mLog.AddEntry(5, currPlayer.mName + " activated ability " + cards[cards.length - 1].mCardAbility + ".");
 			}
 			
 			if (orcWarrior == -1) { // if there is no orc warrior whose ability is active
@@ -12178,6 +12768,7 @@ OogaahCardHumanKnight.prototype.Play = function(cards) {
 			
 			if (cards[cards.length - 1].mCardAttack == "S") { // if the last card in the array is an S
 				cards[cards.length - 1].mMimic = this.GetCopy(); // set its mimic value
+				currScene.mLog.AddEntry(5, currPlayer.mName + " activated ability " + cards[cards.length - 1].mCardAbility + ".");
 			}
 			
 			if (orcWarrior == -1) { // if there is no orc warrior whose ability is active
@@ -12244,19 +12835,39 @@ function OogaahCardOrcBerserker() {
 	this.mValueText[1] = new Text();
 	this.mValueText[2] = new Text();
 	
-	var fnt = nmgrs.resMan.mFontStore.GetResource("poetsen");
+	var fnt = nmgrs.resMan.mFontStore.GetResource("kingthings");
 	for (var i = 0; i < this.mValueText.length; ++i) {
 		this.mValueText[i].SetFont(fnt);
 		
-		this.mValueText[i].mAlign = "right";
+		this.mValueText[i].mAlign = "centre";
 		this.mValueText[i].mAbsolute = true;
-		this.mValueText[i].mDepth = 0;
-		this.mValueText[i].mColour = "#FFFFFF";
+		this.mValueText[i].mColour = "#81BD1C";
+		
+		this.mValueText[i].mShadow = true;
+		this.mValueText[i].mShadowColour = "#498E1F";
 	}
 	
-	this.mValueText[0].SetFontSize(38);
-	this.mValueText[1].SetFontSize(22);
-	this.mValueText[2].SetFontSize(14);
+	this.mValueText[0].SetFontSize(82);
+	this.mValueText[1].SetFontSize(38);
+	this.mValueText[1].mShadowAlpha = 0.5;
+	this.mValueText[2].SetFontSize(22);
+	this.mValueText[2].mShadowAlpha = 0.3;
+	
+	this.mSplitShape = new Array();
+	
+	{
+		this.mSplitShape[0] = new Shape();
+		this.mSplitShape[0].MakeCircle(new Vec2(), 33, 24);
+		this.mSplitShape[0].mColour = "#501616";
+		
+		this.mSplitShape[1] = new Shape();
+		this.mSplitShape[1].MakeCircle(new Vec2(), 15, 24);
+		this.mSplitShape[1].mColour = "#501616";
+		
+		this.mSplitShape[2] = new Shape();
+		this.mSplitShape[2].MakeCircle(new Vec2(), 9, 24);
+		this.mSplitShape[2].mColour = "#501616";
+	}
 	
 	this.ModifyValue(0);
 	this.PositionValueText();
@@ -12292,6 +12903,10 @@ OogaahCardOrcBerserker.prototype.Copy = function(other) {
 	this.mValueText[0].Copy(other.mValueText[0]);
 	this.mValueText[1].Copy(other.mValueText[1]);
 	this.mValueText[2].Copy(other.mValueText[2]);
+	
+	this.mSplitShape[0].Copy(other.mSplitShape[0]);
+	this.mSplitShape[1].Copy(other.mSplitShape[1]);
+	this.mSplitShape[2].Copy(other.mSplitShape[2]);
 }
 
 OogaahCardOrcBerserker.prototype.GetCopy = function() {
@@ -12307,6 +12922,7 @@ OogaahCardOrcBerserker.prototype.GetRenderData = function() {
 		arr.push(this.mCardSprites[this.mSize]);
 		
 		if (this.mCardValue - 10 < 0) { // if the card attack has been modified due to ability
+			arr.push(this.mSplitShape[this.mSize]);
 			arr.push(this.mValueText[this.mSize]); // display the appropiate modification
 		}
 	}
@@ -12342,6 +12958,7 @@ OogaahCardOrcBerserker.prototype.Play = function(cards) {
 			
 			if (cards[cards.length - 1].mCardAttack == "S") { // if the last card in the array is an S
 				cards[cards.length - 1].mMimic = this.GetCopy(); // set its mimic value
+				currScene.mLog.AddEntry(5, currPlayer.mName + " activated ability " + cards[cards.length - 1].mCardAbility + ".");
 			}
 			
 			currPlayer.RemoveSelected(); // remove cards from current player's hands
@@ -12397,28 +13014,48 @@ OogaahCardOrcBerserker.prototype.ModifyValue = function(amount) {
 	this.mCardValue += amount; // change the card value by the amount
 	
 	for (var i = 0; i < this.mValueText.length; ++i) { // for all texts
-		this.mValueText[i].SetString("-" + (10 - this.mCardValue).toString()); // set the string to the new amount
+		this.mValueText[i].SetString(noogaah.IndexToAV(this.mCardValue - 1)); // set the string to the new amount
 	}
 }
 
 // 
 OogaahCardOrcBerserker.prototype.PositionValueText = function() {
 	var lrgSpr = this.mCardSprites[0];
-	this.mValueText[0].SetPosition(new Vec2(Math.round(nmain.game.mCanvasSize.mX / 3) + Math.round(lrgSpr.mSize.mX / 2) - 14,
-			Math.round(nmain.game.mCanvasSize.mY / 2) + Math.round(lrgSpr.mSize.mY / 2) - 108));
+	this.mValueText[0].SetPosition(new Vec2(Math.round(nmain.game.mCanvasSize.mX / 3) + Math.round(lrgSpr.mSize.mX / 2) - 59,
+			Math.round(nmain.game.mCanvasSize.mY / 2) + Math.round(lrgSpr.mSize.mY / 2) - 93));
 	this.mValueText[0].mDepth = lrgSpr.mDepth;
 	
 	var medSpr = this.mCardSprites[1];
 	var medPos = new Vec2(); medPos.Copy(medSpr.mPos);
 	medPos.mX -= medSpr.mOrigin.mX; medPos.mY -= medSpr.mOrigin.mY;
-	this.mValueText[1].SetPosition(new Vec2(medPos.mX + medSpr.mSize.mX - 4, medPos.mY + medSpr.mSize.mY - 52));
+	this.mValueText[1].SetPosition(new Vec2(medPos.mX + medSpr.mSize.mX - 26, medPos.mY + medSpr.mSize.mY - 42));
 	this.mValueText[1].mDepth = medSpr.mDepth;
 	
 	var smlSpr = this.mCardSprites[2];
 	var smlPos = new Vec2(); smlPos.Copy(smlSpr.mPos);
 	smlPos.mX -= smlSpr.mOrigin.mX; smlPos.mY -= smlSpr.mOrigin.mY;
-	this.mValueText[2].SetPosition(new Vec2(smlPos.mX + smlSpr.mSize.mX - 2, smlPos.mY + smlSpr.mSize.mY - 32));
+	this.mValueText[2].SetPosition(new Vec2(smlPos.mX + smlSpr.mSize.mX - 15, smlPos.mY + smlSpr.mSize.mY - 25));
 	this.mValueText[2].mDepth = smlSpr.mDepth;
+	
+	for (var i = 0; i < this.mCardSprites.length; ++i) {
+		this.mSplitShape[i].SetPosition(new Vec2(this.mCardSprites[i].mPos.mX + this.mCardSprites[i].mSize.mX,
+				this.mCardSprites[i].mPos.mY + this.mCardSprites[i].mSize.mY));
+		this.mSplitShape[i].SetOrigin(this.mCardSprites[i].mOrigin);
+	}
+	
+	{
+		var ss0 = this.mSplitShape[0];
+		ss0.SetPosition(new Vec2(ss0.mPos.mX - 56, ss0.mPos.mY - 40));
+		ss0.mDepth = lrgSpr.mDepth;
+		
+		var ss1 = this.mSplitShape[1];
+		ss1.SetPosition(new Vec2(ss1.mPos.mX - 26, ss1.mPos.mY - 18));
+		ss1.mDepth = medSpr.mDepth;
+		
+		var ss2 = this.mSplitShape[2];
+		ss2.SetPosition(new Vec2(ss2.mPos.mX - 15, ss2.mPos.mY - 10));
+		ss2.mDepth = smlSpr.mDepth;
+	}
 }
 // ...End
 
@@ -12490,6 +13127,7 @@ OogaahCardOrcWarchief.prototype.Play = function(cards) {
 			
 			if (cards[cards.length - 1].mCardAttack == "S") { // if the last card in the array is an S
 				cards[cards.length - 1].mMimic = this.GetCopy(); // set its mimic value
+				currScene.mLog.AddEntry(5, currPlayer.mName + " activated ability " + cards[cards.length - 1].mCardAbility + ".");
 			}
 			
 			var foundOrc = null; // the last played orc card this skirmish
@@ -12612,6 +13250,7 @@ OogaahCardHumanPaladin.prototype.Play = function(cards) {
 			
 			if (cards[cards.length - 1].mCardAttack == "S") { // if the last card in the array is an S
 				cards[cards.length - 1].mMimic = this.GetCopy(); // set its mimic value
+				currScene.mLog.AddEntry(5, currPlayer.mName + " activated ability " + cards[cards.length - 1].mCardAbility + ".");
 			}
 			
 			if (orcWarrior == -1) { // if there is no orc warrior whose ability is active
@@ -12694,50 +13333,22 @@ function OogaahCardBeingOfEnergy() {
 	
 	this.mCardValue = 13; // the current value of the card
 	
-	this.mSplitShape = new Array();
+	this.mSplitRect = new Array();
+	this.mSplitCircle = new Array();
 	
 	{
-		this.mSplitShape[0] = new Shape();
+		this.mSplitRect[0] = new Shape();
+		this.mSplitCircle[0] = new Shape();
 		
-		this.mSplitShape[1] = new Shape();
-		this.mSplitShape[1].AddPoint(new Vec2(0, 171));
-		this.mSplitShape[1].AddPoint(new Vec2(-120, 171));
-		this.mSplitShape[1].AddPoint(new Vec2(-80, 95));
-		this.mSplitShape[1].AddPoint(new Vec2(-60, 85));
-		this.mSplitShape[1].AddPoint(new Vec2(-40, 75));
+		this.mSplitRect[1] = new Shape();
+		this.mSplitRect[1].MakeRectangle(new Vec2(), new Vec2(90, 136));
+		this.mSplitCircle[1] = new Shape();
+		this.mSplitCircle[1].MakeCircle(new Vec2(), 15, 32);
 		
-		this.mSplitShape[2] = new Shape();
-		this.mSplitShape[2].AddPoint(new Vec2(0, 103));
-		this.mSplitShape[2].AddPoint(new Vec2(-72, 103));
-		this.mSplitShape[2].AddPoint(new Vec2(-50, 59));
-		this.mSplitShape[2].AddPoint(new Vec2(-36, 51));
-		this.mSplitShape[2].AddPoint(new Vec2(-22, 43));
-	}
-	
-	this.mSplitShapeLine = new Array();
-	
-	{
-		this.mSplitShapeLine[0] = new Shape();
-		
-		this.mSplitShapeLine[1] = new Shape();
-		this.mSplitShapeLine[1].AddPoint(new Vec2(40, -76));
-		this.mSplitShapeLine[1].AddPoint(new Vec2(60, -86));
-		this.mSplitShapeLine[1].AddPoint(new Vec2(80, -96));
-		this.mSplitShapeLine[1].AddPoint(new Vec2(120, -171));
-		this.mSplitShapeLine[1].mLineWidth = 4;
-		this.mSplitShapeLine[1].mRenderStyle = "Line";
-		this.mSplitShapeLine[1].mColour = "#212121";
-		this.mSplitShapeLine[1].mAlpha = 0.7;
-		
-		this.mSplitShapeLine[2] = new Shape();
-		this.mSplitShapeLine[2].AddPoint(new Vec2(22, -44));
-		this.mSplitShapeLine[2].AddPoint(new Vec2(36, -52));
-		this.mSplitShapeLine[2].AddPoint(new Vec2(50, -60));
-		this.mSplitShapeLine[2].AddPoint(new Vec2(72, -103));
-		this.mSplitShapeLine[2].mLineWidth = 2;
-		this.mSplitShapeLine[2].mRenderStyle = "Line";
-		this.mSplitShapeLine[2].mColour = "#212121";
-		this.mSplitShapeLine[2].mAlpha = 0.7;
+		this.mSplitRect[2] = new Shape();
+		this.mSplitRect[2].MakeRectangle(new Vec2(), new Vec2(54, 83));
+		this.mSplitCircle[2] = new Shape();
+		this.mSplitCircle[2].MakeCircle(new Vec2(), 9, 32);
 	}
 	
 	this.mMimic = null; // a copy of the target card that this transformed into (retains when on battlefield or in graveyard)
@@ -12770,11 +13381,11 @@ OogaahCardBeingOfEnergy.prototype.Copy = function(other) {
 	this.mSize = other.mSize;
 	this.mDarken = other.mDarken;
 	
-	this.mSplitShape.splice(0, this.mSplitShape.length);
-	this.mSplitShape = util.ConcatArray(this.mSplitShape, other.mSplitShape);
+	this.mSplitRect.splice(0, this.mSplitRect.length);
+	this.mSplitRect = util.ConcatArray(this.mSplitRect, other.mSplitRect);
 	
-	this.mSplitShapeLine.splice(0, this.mSplitShapeLine.length);
-	this.mSplitShapeLine = util.ConcatArray(this.mSplitShapeLine, other.mSplitShapeLine);
+	this.mSplitCircle.splice(0, this.mSplitCircle.length);
+	this.mSplitCircle = util.ConcatArray(this.mSplitCircle, other.mSplitCircle);
 	
 	if (other.mMimic != null) {
 		this.mMimic = other.mMimic.GetCopy();
@@ -12797,19 +13408,23 @@ OogaahCardBeingOfEnergy.prototype.GetRenderData = function() {
 	if (this.mHidden == false) { // if the card isn't hidden
 		arr.push(this.mCardSprites[this.mSize]); // add the appropiately size face sprite
 		
-		if (this.mMimic != null && this.mSize != 0) {
-			arr.push(this.mSplitShape[this.mSize]);
-			arr.push(this.mSplitShapeLine[this.mSize]);
+		if (this.mMimic != null) {
+			arr.push(this.mSplitRect[this.mSize]);
 			
 			if (this.mMimic.mCardAttack == "3") {
 				if (this.mMimic.mCardValue - 3 > 0) { // if the card attack has been modified due to ability
+					arr.push(this.mMimic.mSplitShape[this.mSize]);
 					arr.push(this.mMimic.mValueText[this.mSize]); // display the appropiate modification
 				}
 			}
 			else if (this.mMimic.mCardAttack == "C") {
 				if (this.mMimic.mCardValue - 10 < 0) { // if the card attack has been modified due to ability
+					arr.push(this.mMimic.mSplitShape[this.mSize]);
 					arr.push(this.mMimic.mValueText[this.mSize]); // display the appropiate modification
 				}
+			}
+			else {
+				arr.push(this.mSplitCircle[this.mSize]);
 			}
 		}
 	}
@@ -12868,25 +13483,105 @@ OogaahCardBeingOfEnergy.prototype.Play = function(cards) {
 }
 
 // 
+OogaahCardBeingOfEnergy.prototype.PositionClip = function() {
+	{
+		var medSpr = this.mCardSprites[1];
+		
+		this.mSplitRect[1].SetOrigin(medSpr.mOrigin);
+		this.mSplitRect[1].SetPosition(medSpr.mPos);
+		this.mSplitRect[1].mPos.mX += 15; this.mSplitRect[1].mPos.mY += 15;
+		this.mSplitRect[1].SetPosition(this.mSplitRect[1].mPos);
+		this.mSplitRect[1].mDepth = medSpr.mDepth;
+		
+		this.mSplitCircle[1].SetOrigin(medSpr.mOrigin);
+		this.mSplitCircle[1].SetPosition(medSpr.mPos);
+		this.mSplitCircle[1].mPos.mX += medSpr.mSize.mX - 26; this.mSplitCircle[1].mPos.mY += medSpr.mSize.mY - 18;
+		this.mSplitCircle[1].SetPosition(this.mSplitCircle[1].mPos);
+		this.mSplitCircle[1].mDepth = medSpr.mDepth;
+		
+		var mimicMedSpr = this.mMimic.mCardSprites[1];
+		mimicMedSpr.SetRotation(0);
+		mimicMedSpr.SetOrigin(new Vec2());
+		mimicMedSpr.mDepth = medSpr.mDepth; 
+		
+		mimicMedSpr.SetPosition(new Vec2(-15, -15));
+		this.mSplitRect[1].mSprite = mimicMedSpr.GetCopy();
+		
+		mimicMedSpr.SetPosition(new Vec2(-(medSpr.mSize.mX - 26), -(medSpr.mSize.mY - 18)));
+		this.mSplitCircle[1].mSprite = mimicMedSpr.GetCopy();
+	}
+	
+	{
+		var smlSpr = this.mCardSprites[2];
+		
+		this.mSplitRect[2].SetOrigin(smlSpr.mOrigin);
+		this.mSplitRect[2].SetPosition(smlSpr.mPos);
+		this.mSplitRect[2].mPos.mX += 9; this.mSplitRect[2].mPos.mY += 9;
+		this.mSplitRect[2].SetPosition(this.mSplitRect[2].mPos);
+		this.mSplitRect[2].mDepth = smlSpr.mDepth;
+		
+		this.mSplitCircle[2].SetOrigin(smlSpr.mOrigin);
+		this.mSplitCircle[2].SetPosition(smlSpr.mPos);
+		this.mSplitCircle[2].mPos.mX += smlSpr.mSize.mX - 15; this.mSplitCircle[2].mPos.mY += smlSpr.mSize.mY - 10;
+		this.mSplitCircle[2].SetPosition(this.mSplitCircle[2].mPos);
+		this.mSplitCircle[2].mDepth = smlSpr.mDepth;
+		
+		var mimicSmlSpr = this.mMimic.mCardSprites[2];
+		mimicSmlSpr.SetRotation(0);
+		mimicSmlSpr.SetOrigin(new Vec2());
+		mimicSmlSpr.mDepth = smlSpr.mDepth; 
+		
+		mimicSmlSpr.SetPosition(new Vec2(-9, -9));
+		this.mSplitRect[2].mSprite = mimicSmlSpr.GetCopy();
+		
+		mimicSmlSpr.SetPosition(new Vec2(-(smlSpr.mSize.mX - 15), -(smlSpr.mSize.mY - 10)));
+		this.mSplitCircle[2].mSprite = mimicSmlSpr.GetCopy();
+	}
+	
+	if (this.mMimic.mCardAttack == "3" || this.mMimic.mCardAttack == "C") {
+		this.PositionValueText();
+	}
+}
+
 OogaahCardBeingOfEnergy.prototype.PositionValueText = function() {
 	if (this.mMimic != null) {
 		if (this.mMimic.mCardAttack == "3" || this.mMimic.mCardAttack == "C") {
 			var lrgSpr = this.mCardSprites[0];
-			this.mMimic.mValueText[0].SetPosition(new Vec2(Math.round(nmain.game.mCanvasSize.mX / 3) + Math.round(lrgSpr.mSize.mX / 2) - 14,
-					Math.round(nmain.game.mCanvasSize.mY / 2) + Math.round(lrgSpr.mSize.mY / 2) - 108));
+			this.mMimic.mValueText[0].SetPosition(new Vec2(Math.round(nmain.game.mCanvasSize.mX / 3) + Math.round(lrgSpr.mSize.mX / 2) - 59,
+					Math.round(nmain.game.mCanvasSize.mY / 2) + Math.round(lrgSpr.mSize.mY / 2) - 93));
 			this.mMimic.mValueText[0].mDepth = lrgSpr.mDepth;
 			
 			var medSpr = this.mCardSprites[1];
 			var medPos = new Vec2(); medPos.Copy(medSpr.mPos);
 			medPos.mX -= medSpr.mOrigin.mX; medPos.mY -= medSpr.mOrigin.mY;
-			this.mMimic.mValueText[1].SetPosition(new Vec2(medPos.mX + medSpr.mSize.mX - 4, medPos.mY + medSpr.mSize.mY - 52));
+			this.mMimic.mValueText[1].SetPosition(new Vec2(medPos.mX + medSpr.mSize.mX - 26, medPos.mY + medSpr.mSize.mY - 42));
 			this.mMimic.mValueText[1].mDepth = medSpr.mDepth;
 			
 			var smlSpr = this.mCardSprites[2];
 			var smlPos = new Vec2(); smlPos.Copy(smlSpr.mPos);
 			smlPos.mX -= smlSpr.mOrigin.mX; smlPos.mY -= smlSpr.mOrigin.mY;
-			this.mMimic.mValueText[2].SetPosition(new Vec2(smlPos.mX + smlSpr.mSize.mX - 2, smlPos.mY + smlSpr.mSize.mY - 32));
+			this.mMimic.mValueText[2].SetPosition(new Vec2(smlPos.mX + smlSpr.mSize.mX - 15, smlPos.mY + smlSpr.mSize.mY - 25));
 			this.mMimic.mValueText[2].mDepth = smlSpr.mDepth;
+			
+			for (var i = 0; i < this.mCardSprites.length; ++i) {
+				this.mMimic.mSplitShape[i].SetPosition(new Vec2(this.mCardSprites[i].mPos.mX + this.mCardSprites[i].mSize.mX,
+						this.mCardSprites[i].mPos.mY + this.mCardSprites[i].mSize.mY));
+				this.mMimic.mSplitShape[i].SetOrigin(this.mCardSprites[i].mOrigin);
+			}
+			
+			{
+				var ss0 = this.mMimic.mSplitShape[0];
+				ss0.SetPosition(new Vec2(ss0.mPos.mX - 56, ss0.mPos.mY - 40));
+				ss0.mDepth = lrgSpr.mDepth;
+				
+				var ss1 = this.mMimic.mSplitShape[1];
+				ss1.SetPosition(new Vec2(ss1.mPos.mX - 26, ss1.mPos.mY - 18));
+				ss1.mDepth = medSpr.mDepth;
+				
+				var ss2 = this.mMimic.mSplitShape[2];
+				ss2.SetPosition(new Vec2(ss2.mPos.mX - 15, ss2.mPos.mY - 10));
+				ss2.mDepth = smlSpr.mDepth;
+			}
 		}
 	}
 }
