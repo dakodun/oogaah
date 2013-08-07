@@ -16,7 +16,7 @@ InitScene.prototype.SetUp = function() {
 		nmgrs.resLoad.QueueFont("monaco", "./res/sys/monaco/monaco");
 		
 		//
-		nmgrs.resLoad.QueueFont("kingthings", "./res/sys/kingthings exeter/Kingthings_Exeter");
+		nmgrs.resLoad.QueueFont("kingthings", "./res/sys/kingthings_exeter/Kingthings_Exeter");
 		
 		nmgrs.resLoad.QueueFont("oldmansans", "./res/sys/OldSansBlack");
 		
