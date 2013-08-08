@@ -5,6 +5,7 @@ window.onresize = function(e) {
 }
 // ...End
 
+
 // Game Class...
 // a game object contains all the logic and data of our game
 function Game() {
@@ -71,6 +72,18 @@ Game.prototype.TearDown = function() {
 
 // our main game loop
 Game.prototype.Run = function() {
+	var noShow = 0; // assume tab is visible
+	// if the page visibility spec is available
+	if (document.hidden !== 'undefined' || document.msHidden !== 'undefined' || document.webkitHidden !== 'undefined') {
+		// if the document is hidden
+		if (document.hidden == true || document.msHidden == true || document.webkitHidden == true) {
+			noShow = 1;
+		}
+	}
+	else { // otherwise spec isn't available
+		noShow = -1; // use naive workaround
+	}
+	
 	var updateDisplay = false; // do we need to redisplay?
 	
 	this.Input(); // perform input handling
@@ -85,10 +98,15 @@ Game.prototype.Run = function() {
 	while (this.mAccum > (1 / this.mFrameLimit)) {
 		this.Process(); // process the game
 		
-		if (this.mIntergrate == true) {
+		// if we are integrating and the tab is visible
+		if (this.mIntergrate == true && noShow == 0) {
 			this.mAccum -= (1 / this.mFrameLimit); // decrease the accumulator
 		}
-		else {
+		else if (this.mIntergrate == false || noShow == 1 || noShow == -1) {
+			
+			// otherwise we are not integrating or the tab is hidden
+			// or we are using workaround
+			
 			this.mAccum = 0; // reset the accumulator
 		}
 		
