@@ -2,6 +2,9 @@
 // 
 function OogaahTutorialHuman() {
 	OogaahHuman.apply(this, null); // construct the base class
+	
+	this.mDesired = new Array();
+	this.mDesiredMessages = new Array();
 };
 
 // inherit the base class's prototype
@@ -12,84 +15,92 @@ OogaahTutorialHuman.prototype.OnPlay = function() {
 	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
 	
 	var match = true; // assume a match initially
-	var desired = new Array();
-	desired.push(currScene.mCardList[0]);
 	
 	{
 		var arr = new Array(); arr = util.ConcatArray(arr, this.GetSelected()); // get the currently selected cards
 		
-		if (arr.length == desired.length) { // if the lengths match then we potentially have a match
-			for (var i = 0; i < arr.length; ++i) { // for all cards in both arrays
-				// if the cards don't match
-				if (arr[i].mCardAttack != desired[i].mCardAttack && arr[i].mCardValue != desired[i].mCardValue) {
-					match = false; // indicated no match
-					break; // stop
+		if (this.mDesired.length > 0) { // if we have desired cards
+			if (arr.length == this.mDesired[0].length) { // if the lengths match then we potentially have a match
+				for (var i = 0; i < arr.length; ++i) { // for all cards in both arrays
+					// if the cards don't match
+					if (arr[i].mCardAttack != this.mDesired[0][i].mCardAttack &&
+							arr[i].mCardValue != this.mDesired[0][i].mCardValue) {
+						
+						match = false; // indicated no match
+						break; // stop
+					}
 				}
 			}
+			else { // otherwise, mismatched lengths indicate no match
+				match = false;
+			}
 		}
-		else { // otherwise, mismatched lengths indicate no match
+		else { // otherwise, no desired cards
 			match = false;
 		}
 	}
 	
 	if (match == false) { // if we didn't get a match
 		// no dice, dummy!
-		alert("Invalid!");
+		if (this.mDesiredMessages.length > 0) {
+			alert(this.mDesiredMessages[0]);
+		}
 	}
 	else {
-	
-	}
-	
-	/* if (this.mMode == 5 && this.mSubMode == "b") { // if we are in goblin technician mode (submode b)
-		for (var i = 0; i < this.mHand.mCards.length; ++i) { // for all cards
-			this.mSelectedCards[i] = 3; // set cards to single-selectable (3)
-			this.mHand.mCards[i].mDarken = false;
+		this.mDesired.splice(0, 1);
+		this.mDesiredMessages.splice(0, 1);
+		
+		if (this.mMode == 5 && this.mSubMode == "b") { // if we are in goblin technician mode (submode b)
+			for (var i = 0; i < this.mHand.mCards.length; ++i) { // for all cards
+				this.mSelectedCards[i] = 3; // set cards to single-selectable (3)
+				this.mHand.mCards[i].mDarken = false;
+			}
+			
+			this.mGUI.mDisplayCard = null;
+			
+			// update player gui text
+			this.mGUI.mButtonText[0].SetString("Swap Card");
+			this.mGUI.ShowMessage(true, "Choose which card to swap or pass.");
+			
+			this.mSubMode = "c"; // change to submode c
 		}
-		
-		this.mGUI.mDisplayCard = null;
-		
-		// update player gui text
-		this.mGUI.mButtonText[0].SetString("Swap Card");
-		this.mGUI.ShowMessage(true, "Choose which card to swap or pass.");
-		
-		this.mSubMode = "c"; // change to submode c
-	}
-	else if (this.mMode == 6) { // otherwise if we are in orc shaman mode
-		currScene.mReversed = !currScene.mReversed; // reverse the current game values
-		
-		// update player gui text
-		this.mGUI.mButtonText[0].SetString("Play");
-		this.mGUI.ShowMessage(false);
-		
-		currScene.mLog.AddEntry(3, this.mName + " reversed card values for this skirmish."); // add entry to the play log
-		
-		this.mMode = 0; // reset to mode 0
-		this.ResetSelected(); // reset selected states
-		currScene.ChangePlayer(); // change to the next player
-		currScene.mDelay = 1000;
-	}
-	else { // otherwise we are in normal play
-		var arr = new Array(); arr = util.ConcatArray(arr, this.GetSelected()); // get the currently selected cards
-		if (arr.length > 0) { // if we have selected at least 1 card
-			arr[0].Play(arr); // play that/those cards
+		else if (this.mMode == 6) { // otherwise if we are in orc shaman mode
+			currScene.mReversed = !currScene.mReversed; // reverse the current game values
+			
+			// update player gui text
+			this.mGUI.mButtonText[0].SetString("Play");
+			this.mGUI.ShowMessage(false);
+			
+			currScene.mLog.AddEntry(3, this.mName + " reversed card values for this skirmish."); // add entry to the play log
+			
+			this.mMode = 0; // reset to mode 0
+			this.ResetSelected(); // reset selected states
+			currScene.ChangePlayer(); // change to the next player
 			currScene.mDelay = 1000;
 		}
-	}
-	
-	if (this.mHand.mCards.length == 0 && this.mMode == 0 && this.mFinished == false) {
-		if (currScene.mFinishedCount == 0) {
-			currScene.mLog.AddEntry(7, this.mName + " achieved a flawless victory (1st)!"); // add entry to the play log
-		}
-		else if (currScene.mFinishedCount == 1) {
-			currScene.mLog.AddEntry(8, this.mName + " won a costly battle (2nd)!"); // add entry to the play log
-		}
-		else if (currScene.mFinishedCount == 2) {
-			currScene.mLog.AddEntry(9, this.mName + " yielded and limped home (3rd)!"); // add entry to the play log
+		else { // otherwise we are in normal play
+			var arr = new Array(); arr = util.ConcatArray(arr, this.GetSelected()); // get the currently selected cards
+			if (arr.length > 0) { // if we have selected at least 1 card
+				arr[0].Play(arr); // play that/those cards
+				currScene.mDelay = 1000;
+			}
 		}
 		
-		++currScene.mFinishedCount;
-		this.mFinished = true;
-	} */
+		if (this.mHand.mCards.length == 0 && this.mMode == 0 && this.mFinished == false) {
+			if (currScene.mFinishedCount == 0) {
+				currScene.mLog.AddEntry(7, this.mName + " achieved a flawless victory (1st)!"); // add entry to the play log
+			}
+			else if (currScene.mFinishedCount == 1) {
+				currScene.mLog.AddEntry(8, this.mName + " won a costly battle (2nd)!"); // add entry to the play log
+			}
+			else if (currScene.mFinishedCount == 2) {
+				currScene.mLog.AddEntry(9, this.mName + " yielded and limped home (3rd)!"); // add entry to the play log
+			}
+			
+			++currScene.mFinishedCount;
+			this.mFinished = true;
+		}
+	}
 }
 
 // logic called when the pass button is clicked in the player gui
