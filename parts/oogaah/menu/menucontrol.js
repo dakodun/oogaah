@@ -70,7 +70,7 @@ OogaahMenuControl.prototype.SetUp = function() {
 		
 		this.mMenuOptions[0].SetString("Play a Game");
 		this.mMenuOptions[1].SetString("Learn to Play");
-		this.mMenuOptions[2].SetString("Set Options");
+		this.mMenuOptions[2].SetString("-");// Set Options");
 		this.mMenuOptions[3].SetString("");
 		this.mMenuOptions[4].SetString("");
 	}
@@ -95,7 +95,7 @@ OogaahMenuControl.prototype.Input = function() {
 					nmgrs.sceneMan.RequestSceneChange(new OogaahGameScene());
 				}
 				else if (this.mMode == 2) {
-					nmgrs.sceneMan.RequestSceneChange(new OogaahTutorialScene());
+					// nmgrs.sceneMan.RequestSceneChange(new OogaahTutorialScene());
 				}
 				
 				break;
@@ -106,7 +106,7 @@ OogaahMenuControl.prototype.Input = function() {
 					this.mOptionsAnimState = "animOut";
 				}
 				else if (this.mMode == 2) {
-					nmgrs.sceneMan.RequestSceneChange(new OogaahTutorialScene());
+					// nmgrs.sceneMan.RequestSceneChange(new OogaahTutorialScene());
 				}
 				
 				break;
@@ -115,7 +115,7 @@ OogaahMenuControl.prototype.Input = function() {
 					// nmgrs.sceneMan.RequestSceneChange(new OogaahOptionsScene());
 				}
 				else if (this.mMode == 2) {
-					nmgrs.sceneMan.RequestSceneChange(new OogaahTutorialScene());
+					// nmgrs.sceneMan.RequestSceneChange(new OogaahTutorialScene());
 				}
 				
 				break;
@@ -172,7 +172,7 @@ OogaahMenuControl.prototype.Process = function() {
 					
 					this.mMenuOptions[0].SetString("Play a Game");
 					this.mMenuOptions[1].SetString("Learn to Play");
-					this.mMenuOptions[2].SetString("Set Options");
+					this.mMenuOptions[2].SetString("-");// Set Options");
 					this.mMenuOptions[3].SetString("");
 					this.mMenuOptions[4].SetString("");
 					
@@ -183,10 +183,10 @@ OogaahMenuControl.prototype.Process = function() {
 					this.mMenuOptions[3].mBack.mRenderStyle = "Fill";
 					this.mMenuOptions[4].mBack.mRenderStyle = "Fill";
 					
-					this.mMenuOptions[0].SetString("Learn the Basic Game Rules");
-					this.mMenuOptions[1].SetString("Learn the Screen Layout");
-					this.mMenuOptions[2].SetString("Learn the Card Abilities");
-					this.mMenuOptions[3].SetString("Play an Example Hand");
+					this.mMenuOptions[0].SetString("-");// Learn the Basic Game Rules");
+					this.mMenuOptions[1].SetString("-");// Learn the Screen Layout");
+					this.mMenuOptions[2].SetString("-");// Learn the Card Abilities");
+					this.mMenuOptions[3].SetString("Play an Example Round");
 					this.mMenuOptions[4].SetString("Go Back");
 					
 					this.mSetup = true;
