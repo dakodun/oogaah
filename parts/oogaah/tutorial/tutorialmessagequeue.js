@@ -1,6 +1,6 @@
-// OogaahExampleMessage Class...
+// OogaahTutorialMessage Class...
 // 
-function OogaahExampleMessage() {
+function OogaahTutorialMessage() {
 	this.mPos = new Vec2();
 	this.mSize = new Vec2();
 	
@@ -49,9 +49,12 @@ function OogaahExampleMessage() {
 		this.mTextContinue.mDepth = -1000;
 		this.mTextContinue.SetString("Left click to continue...");
 	}
+	
+	this.mFade = new OogaahMessageFade();
+	this.mFade.CreateFade();
 };
 
-OogaahExampleMessage.prototype.CreateMessage = function() {
+OogaahTutorialMessage.prototype.CreateMessage = function() {
 	var arr = new Array();
 	arr.push(new Vec2(this.mSize.mX, 0));
 	arr.push(new Vec2(this.mSize.mX, this.mSize.mY + 20));
@@ -91,7 +94,7 @@ OogaahExampleMessage.prototype.CreateMessage = function() {
 	}
 }
 
-OogaahExampleMessage.prototype.SetArrow = function(direction, offset) {
+OogaahTutorialMessage.prototype.SetArrow = function(direction, offset) {
 	this.mShapeArrow.Clear();
 	var offs = offset;
 	
@@ -141,14 +144,14 @@ OogaahExampleMessage.prototype.SetArrow = function(direction, offset) {
 // ...End
 
 
-// OogaahExampleMessageQueue Class...
+// OogaahTutorialMessageQueue Class...
 // 
-function OogaahExampleMessageQueue() {
+function OogaahTutorialMessageQueue() {
 	this.mQueue = new Array();
 };
 
-OogaahExampleMessageQueue.prototype.PushMessage = function(pos, string, size, direction, offset) {
-	var msg = new OogaahExampleMessage();
+OogaahTutorialMessageQueue.prototype.PushMessage = function(pos, string, size, direction, offset, fadePos, fadeSize) {
+	var msg = new OogaahTutorialMessage();
 	
 	msg.mPos.Copy(pos);
 	msg.mSize.Copy(size);
@@ -163,16 +166,51 @@ OogaahExampleMessageQueue.prototype.PushMessage = function(pos, string, size, di
 	
 	msg.CreateMessage();
 	
+	if (fadePos != null) {
+		msg.mFade.CreateFade(fadePos, fadeSize);
+	}
+	
 	this.mQueue.push(msg);
 }
 
-OogaahExampleMessageQueue.prototype.PopMessage = function() {
+OogaahTutorialMessageQueue.prototype.InsertMessage = function(pos, string, size, direction, offset, fadePos, fadeSize, id) {
+	var msg = new OogaahTutorialMessage();
+	
+	msg.mPos.Copy(pos);
+	msg.mSize.Copy(size);
+	msg.SetArrow(direction, offset);
+	
+	msg.mText.SetPosition(pos);
+	msg.mText.SetString(string);
+	msg.mText.EnableWrapping(size.mX - 10);
+	
+	msg.mTextContinue.SetPosition(pos);
+	msg.mTextContinue.SetOrigin(new Vec2(-size.mX + 5, -size.mY + 2));
+	
+	msg.CreateMessage();
+	
+	if (fadePos != null) {
+		msg.mFade.CreateFade(fadePos, fadeSize);
+	}
+	
+	var insertPos = id;
+	if (insertPos > this.mQueue.length) {
+		insertPos = this.mQueue.length;
+	}
+	else if (insertPos < 0) {
+		insertPos = 0;
+	}
+	
+	this.mQueue.splice(insertPos, 0, msg);
+}
+
+OogaahTutorialMessageQueue.prototype.PopMessage = function() {
 	if (this.mQueue.length > 0) {
 		this.mQueue.splice(0, 1);
 	}
 }
 
-OogaahExampleMessageQueue.prototype.Input = function() {
+OogaahTutorialMessageQueue.prototype.Input = function() {
 	if (this.mQueue.length > 0) {
 		if (this.mQueue[0].mCanContinue == true) {
 			if (nmgrs.inputMan.GetMousePressed(nmouse.button.code.left) == true &&
@@ -184,10 +222,11 @@ OogaahExampleMessageQueue.prototype.Input = function() {
 	}
 }
 
-OogaahExampleMessageQueue.prototype.GetRenderData = function() {
+OogaahTutorialMessageQueue.prototype.GetRenderData = function() {
 	var arr = new Array();
 	
 	if (this.mQueue.length > 0) {
+		arr = util.ConcatArray(arr, this.mQueue[0].mFade.GetRenderData());
 		arr.push(this.mQueue[0].mShapeBack);
 		
 		arr.push(this.mQueue[0].mShapeOuterOutline);
@@ -199,6 +238,50 @@ OogaahExampleMessageQueue.prototype.GetRenderData = function() {
 		if (this.mQueue[0].mCanContinue == true) {
 			arr.push(this.mQueue[0].mTextContinue);
 		}
+	}
+	
+	return arr;
+}
+// ...End
+
+
+// OogaahMessageFade Class...
+//
+function OogaahMessageFade() {
+	this.mShapes = new Array();
+	this.mShapes[0] = new Shape();
+	this.mShapes[1] = new Shape();
+	this.mShapes[2] = new Shape();
+	this.mShapes[3] = new Shape();
+	
+	for (var i = 0; i < this.mShapes.length; ++i) {
+		this.mShapes[i].mDepth = -1000;
+		this.mShapes[i].mColour = "#000000";
+		this.mShapes[i].mAlpha = 0.7;
+	}
+};
+
+OogaahMessageFade.prototype.CreateFade = function(pos, size) {
+	for (var i = 0; i < this.mShapes.length; ++i) {
+		this.mShapes[i].Clear();
+	}
+	
+	if (pos == null) {
+		this.mShapes[0].MakeRectangle(new Vec2(0, 0), new Vec2(nmain.game.mCanvasSize.mX, nmain.game.mCanvasSize.mY));
+	}
+	else {
+		this.mShapes[0].MakeRectangle(new Vec2(0, 0), new Vec2(nmain.game.mCanvasSize.mX, pos.mY));
+		this.mShapes[1].MakeRectangle(new Vec2(0, pos.mY), new Vec2(pos.mX, size.mY));
+		this.mShapes[2].MakeRectangle(new Vec2(pos.mX + size.mX, pos.mY), new Vec2(nmain.game.mCanvasSize.mX, size.mY));
+		this.mShapes[3].MakeRectangle(new Vec2(0, pos.mY + size.mY), new Vec2(nmain.game.mCanvasSize.mX, nmain.game.mCanvasSize.mY));
+	}
+}
+
+OogaahMessageFade.prototype.GetRenderData = function() {
+	var arr = new Array();
+	
+	for (var i = 0; i < this.mShapes.length; ++i) {
+		arr.push(this.mShapes[i]);
 	}
 	
 	return arr;
