@@ -80,7 +80,7 @@ OogaahTutorialMessageContent4.prototype.SetMessages = function() {
 		currScene.mMessageQueue.mQueue[currScene.mMessageQueue.mQueue.length - 1].SetTimeout(0.4);
 		
 		currScene.mMessageQueue.PushMessage(new Vec2(Math.round(nmain.game.mCanvasSize.mX / 4), 80),
-				"In currScene tutorial we will play a short round of Oogaah.",
+				"In this tutorial we will play a short round of Oogaah.",
 				new Vec2(Math.round(nmain.game.mCanvasSize.mX / 2), 45), "none", 0);
 		currScene.mMessageQueue.mQueue[currScene.mMessageQueue.mQueue.length - 1].SetTimeout(0.4);
 		
@@ -107,7 +107,7 @@ OogaahTutorialMessageContent4.prototype.SetMessages = function() {
 		
 		
 		currScene.mMessageQueue.PushMessage(new Vec2(248, 156),
-				"When using currScene ability, the Current Attack Value and Required Squad Size both become 1, regardless of the number of Goblin Hordes played.",
+				"When using this ability, the Current Attack Value and Required Squad Size both become 1, regardless of the number of Goblin Hordes played.",
 				new Vec2(Math.round(nmain.game.mCanvasSize.mX / 2), 60), "left", 12, new Vec2(99, 142), new Vec2(99, 84));
 		currScene.mMessageQueue.mQueue[currScene.mMessageQueue.mQueue.length - 1].SetTimeout(0.4);
 		
@@ -124,7 +124,7 @@ OogaahTutorialMessageContent4.prototype.SetMessages = function() {
 		currScene.mMessageQueue.mQueue[currScene.mMessageQueue.mQueue.length - 1].SetTimeout(0.4);
 		
 		currScene.mMessageQueue.PushMessage(new Vec2(248, 156),
-				"currScene ignores the Required Squad Size (setting both it and the Current Attack Value to the number of Goblin Hordes played).",
+				"This ignores the Required Squad Size (setting both it and the Current Attack Value to the number of Goblin Hordes played).",
 				new Vec2(Math.round(nmain.game.mCanvasSize.mX / 2), 60), "left", 12, new Vec2(99, 142), new Vec2(99, 84));
 		currScene.mMessageQueue.mQueue[currScene.mMessageQueue.mQueue.length - 1].SetTimeout(0.4);
 		
@@ -140,7 +140,7 @@ OogaahTutorialMessageContent4.prototype.SetMessages = function() {
 		currScene.mMessageQueue.mQueue[currScene.mMessageQueue.mQueue.length - 1].SetTimeout(0.4);
 		
 		currScene.mMessageQueue.PushMessage(new Vec2(Math.round(nmain.game.mCanvasSize.mX / 4), 80),
-				"currScene persists throughout the current battle, so it's usually wise to dispose of them early on.",
+				"This persists throughout the current battle, so it's usually wise to dispose of them early on.",
 				new Vec2(Math.round(nmain.game.mCanvasSize.mX / 2), 45), "none", 0);
 		currScene.mMessageQueue.mQueue[currScene.mMessageQueue.mQueue.length - 1].SetTimeout(0.4);
 		
@@ -185,7 +185,7 @@ OogaahTutorialMessageContent4.prototype.SetMessages = function() {
 		currScene.mMessageQueue.mQueue[currScene.mMessageQueue.mQueue.length - 1].SetTimeout(0.4);
 		
 		currScene.mMessageQueue.PushMessage(new Vec2(248, 210),
-				"currScene means that the only card that can be played next in the current skirmish is a Human Peasant.",
+				"This means that the only card that can be played next in the current skirmish is a Human Peasant.",
 				new Vec2(Math.round(nmain.game.mCanvasSize.mX / 2), 45), "left", 16, new Vec2(99, 230), new Vec2(99, 24));
 		currScene.mMessageQueue.mQueue[currScene.mMessageQueue.mQueue.length - 1].SetTimeout(0.4);
 		
