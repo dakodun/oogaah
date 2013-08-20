@@ -5,6 +5,7 @@ function OogaahTutorialMessage() {
 	this.mSize = new Vec2();
 	
 	this.mCanContinue = true;
+	this.mContinueTimer = 0;
 	this.mArrowDirection = -1;
 	
 	this.mShape = new Shape();
@@ -141,6 +142,11 @@ OogaahTutorialMessage.prototype.SetArrow = function(direction, offset) {
 			break;
 	}
 }
+
+OogaahTutorialMessage.prototype.SetTimeout = function(time) {
+	this.mCanContinue = false;
+	this.mContinueTimer = time;
+}
 // ...End
 
 
@@ -217,6 +223,20 @@ OogaahTutorialMessageQueue.prototype.Input = function() {
 					nmgrs.inputMan.GetMouseInCanvas() == true) {
 				
 				this.PopMessage();
+				return true;
+			}
+		}
+	}
+	
+	return false;
+}
+
+OogaahTutorialMessageQueue.prototype.Process = function() {
+	if (this.mQueue.length > 0) {
+		if (this.mQueue[0].mCanContinue == false) {
+			this.mQueue[0].mContinueTimer -= 1 / nmain.game.mFrameLimit;
+			if (this.mQueue[0].mContinueTimer <= 0) {
+				this.mQueue[0].mCanContinue = true;
 			}
 		}
 	}

@@ -51,6 +51,7 @@ OogaahTutorialHuman.prototype.OnPlay = function() {
 					this.mDesired[0].mArrowDir, this.mDesired[0].mArrowOff,
 					this.mDesired[0].mFadePos, this.mDesired[0].mFadeSize,
 					0);
+			currScene.mMessageQueue.mQueue[0].SetTimeout(0.4);
 		}
 	}
 	else {
@@ -135,6 +136,7 @@ OogaahTutorialHuman.prototype.OnPass = function() {
 					this.mDesired[0].mArrowDir, this.mDesired[0].mArrowOff,
 					this.mDesired[0].mFadePos, this.mDesired[0].mFadeSize,
 					0);
+			currScene.mMessageQueue.mQueue[0].SetTimeout(0.4);
 		}
 	}
 	else {
