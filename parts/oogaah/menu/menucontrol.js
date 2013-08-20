@@ -122,6 +122,7 @@ OogaahMenuControl.prototype.Input = function() {
 			case 3 :
 				if (this.mMode == 2) {
 					nmgrs.sceneMan.RequestSceneChange(new OogaahTutorialScene());
+					nmgrs.sceneMan.mReadyScene.mTutorialContent = new OogaahTutorialMessageContent4();
 				}
 				
 				break;
