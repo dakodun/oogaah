@@ -73,6 +73,8 @@ SceneManager.prototype.ChangeScene = function() {
 			this.mCurrScene.SetUp(); // set up the new scene
 		}
 		
+		nmain.game.mTimer.Reset(); // reset the frame timer
+		
 		this.mReadyScene = null; // discard the readied scene
 	}
 }
