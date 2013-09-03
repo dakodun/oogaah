@@ -38,14 +38,13 @@ OogaahTutorialScene.prototype.SetUp = function() {
 	this.mBatch.mFrustrumCull = false;
 	
 	{
-		var tex = nmgrs.resMan.mTexStore.GetResource("gameBack");
+		var tex = nmgrs.resMan.mTextureStore.GetResource("gameBack");
 		this.mGameBack.SetTexture(tex);
 		this.mGameBack.SetPosition(new Vec2(2, 2));
 		this.mGameBack.mDepth = 99999;
 	}
 	
 	this.CreateCardList();
-	this.DealCards(0);
 	this.mTutorialContent.SetCards();
 	
 	this.mGraveyard.SetUp();
@@ -83,7 +82,7 @@ OogaahTutorialScene.prototype.SetUp = function() {
 		this.mStatusAVText.mAlign = "centre";
 		this.mStatusAVText.SetString("0");
 		
-		var texAV = nmgrs.resMan.mTexStore.GetResource("statusAVBack");
+		var texAV = nmgrs.resMan.mTextureStore.GetResource("statusAVBack");
 		this.mStatusAVSprite.SetTexture(texAV);
 		this.mStatusAVSprite.SetPosition(new Vec2(pos.mX, pos.mY));
 		this.mStatusAVSprite.mDepth = 1;
@@ -96,14 +95,14 @@ OogaahTutorialScene.prototype.SetUp = function() {
 		this.mStatusSSText.mAlign = "centre";
 		this.mStatusSSText.SetString("0x");
 		
-		var texSS = nmgrs.resMan.mTexStore.GetResource("statusSSBack");
+		var texSS = nmgrs.resMan.mTextureStore.GetResource("statusSSBack");
 		this.mStatusSSSprite.SetTexture(texSS, 6, 1, -1, -1);
 		this.mStatusSSSprite.SetCurrentFrame(0);
 		this.mStatusSSSprite.SetPosition(new Vec2(pos.mX + 1, pos.mY + 38));
 		this.mStatusSSSprite.mDepth = 1;
 		
 		
-		var texIcons = nmgrs.resMan.mTexStore.GetResource("statusIcons");
+		var texIcons = nmgrs.resMan.mTextureStore.GetResource("statusIcons");
 		
 		this.mStatusWarrior.SetTexture(texIcons, 3, 3, -1, -1);
 		this.mStatusWarrior.SetCurrentFrame(1);
@@ -123,6 +122,10 @@ OogaahTutorialScene.prototype.SetUp = function() {
 	
 	this.mTutorialContent.SetMessages();
 	this.mTutorialContent.SetDesired();
+	
+	if (this.mPlayers[this.mCurrPlayer].mType == "AI") { // if the initial player is ai
+		this.mDelay = 1000; // add a delay before they play their first card
+	}
 }
 
 // handles user input
@@ -253,10 +256,6 @@ OogaahTutorialScene.prototype.Render = function() {
 	}
 	
 	this.mBatch.Render(null, null);
-}
-
-OogaahTutorialScene.prototype.DealCards = function(first) {
-	this.mCurrPlayer = first; // set the current player
 }
 // ...End
 
