@@ -78,9 +78,22 @@ OogaahCardHumanCleric.prototype.Play = function(cards) {
 				{ // ability
 					currScene.mLog.AddEntry(5, currPlayer.mName + " activated ability " + this.mCardAbility + ".");
 					
-					for (var i = 0; i < currScene.mPlayers.length; ++i) {
+					var playerArr = new Array();
+					
+					{ // add all other players, going clockwise
+						for (var i = currScene.mCurrPlayer + 1; i < currScene.mPlayers.length; ++i) {
+							playerArr.push(i);
+						}
+						
+						for (var i = 0; i < currScene.mCurrPlayer; ++i) {
+							playerArr.push(i);
+						}
+					}
+					
+					for (var i = 0; i < playerArr.length; ++i) {
+						var pid = playerArr[i];
 						// if not this player and the player is still in the game
-						if (i != currScene.mCurrPlayer && currScene.mPlayers[i].mFinished == false) {
+						if (pid != currScene.mCurrPlayer && currScene.mPlayers[pid].mFinished == false) {
 							if (currScene.mGraveyard.mCards.length == 0) { // if the graveyard is empty
 								break; // stop
 							}
@@ -104,9 +117,9 @@ OogaahCardHumanCleric.prototype.Play = function(cards) {
 							}
 							
 							currScene.mGraveyard.RemoveCard(id); // remove card from the graveyard
-							currScene.mPlayers[i].mHand.AddCard(card); // add it to the player's hand
-							currScene.mPlayers[i].PositionHand(); // reposition the player's hand
-							currScene.mPlayers[i].ResetSelected();
+							currScene.mPlayers[pid].mHand.AddCard(card); // add it to the player's hand
+							currScene.mPlayers[pid].PositionHand(); // reposition the player's hand
+							currScene.mPlayers[pid].ResetSelected();
 						}
 					}
 				}
