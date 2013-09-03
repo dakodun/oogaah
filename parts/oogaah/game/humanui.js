@@ -83,8 +83,8 @@ OogaahHumanUI.prototype.SetUp = function(owner) {
 	{
 		// textures for ui buttons and font for button text
 		var fnt = nmgrs.resMan.mFontStore.GetResource("kingthings");
-		var texLarge = nmgrs.resMan.mTexStore.GetResource("buttonLarge");
-		var texSmall = nmgrs.resMan.mTexStore.GetResource("buttonSmall");
+		var texLarge = nmgrs.resMan.mTextureStore.GetResource("buttonLarge");
+		var texSmall = nmgrs.resMan.mTextureStore.GetResource("buttonSmall");
 		
 		{ // play button
 			var pos = new Vec2(506, 412); // button position

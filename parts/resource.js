@@ -23,9 +23,10 @@ function Resource(resource, resourceName) {
 
 // QueuedResource Class...
 // holds a resource name and the location of the resource
-function QueuedResource(resourceName, resourceLocation) {
+function QueuedResource(resourceName, resourceLocation, resourceTypes) {
 	this.mResName = resourceName; // the id of our resource (string)
 	this.mResLocation = resourceLocation; // the location of our resource on disk
+	this.mResTypes = resourceTypes; // 
 };
 // ...End
 

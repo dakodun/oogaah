@@ -229,8 +229,8 @@ OogaahGraveyard.prototype.RemoveCard = function(id) {
 OogaahGraveyard.prototype.SetUp = function() {
 	{
 		// textures for card backs
-		var texBackMedium = nmgrs.resMan.mTexStore.GetResource("cardBackMedium");
-		var texBackSmall = nmgrs.resMan.mTexStore.GetResource("cardBackSmall");
+		var texBackMedium = nmgrs.resMan.mTextureStore.GetResource("cardBackMedium");
+		var texBackSmall = nmgrs.resMan.mTextureStore.GetResource("cardBackSmall");
 		
 		this.mCard.mHidden = true;
 		
@@ -257,8 +257,8 @@ OogaahGraveyard.prototype.SetUp = function() {
 	
 	{
 		// textures for card bundles
-		var texBundleMedium = nmgrs.resMan.mTexStore.GetResource("cardBundleMedium");
-		var texBundleSmall = nmgrs.resMan.mTexStore.GetResource("cardBundleSmall");
+		var texBundleMedium = nmgrs.resMan.mTextureStore.GetResource("cardBundleMedium");
+		var texBundleSmall = nmgrs.resMan.mTextureStore.GetResource("cardBundleSmall");
 		
 		// set up medium bundle sprite
 		this.mBundleSprites[1].SetTexture(texBundleMedium);
@@ -279,7 +279,7 @@ OogaahGraveyard.prototype.SetUp = function() {
 		this.mViewShape.mAlpha = 0.5;
 		this.mViewShape.mColour = "#000000";
 		
-		var arrowTex = nmgrs.resMan.mTexStore.GetResource("buttonGraveyardArrow");
+		var arrowTex = nmgrs.resMan.mTextureStore.GetResource("buttonGraveyardArrow");
 		this.mViewLeftButton.SetUp(new Vec2(136, 181), new Vec2(25, 50), -51);
 		this.mViewLeftButton.mSpriteIdle.SetTexture(arrowTex, 8, 2, -1, -1); this.mViewLeftButton.mSpriteIdle.SetCurrentFrame(0);
 		this.mViewLeftButton.mSpriteHover.SetTexture(arrowTex, 8, 2, -1, -1); this.mViewLeftButton.mSpriteHover.SetCurrentFrame(2);

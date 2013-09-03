@@ -44,7 +44,7 @@ function OogaahPlayLog() {
 
 // initiate the log
 OogaahPlayLog.prototype.SetUp = function() {
-	var texIcon = nmgrs.resMan.mTexStore.GetResource("logIcons"); // the texture containing the icons for the play log
+	var texIcon = nmgrs.resMan.mTextureStore.GetResource("logIcons"); // the texture containing the icons for the play log
 	
 	for (var i = 0; i < this.mIconCount; ++i) { // for all icons
 		this.mIcons[i] = new Sprite(); // create a new sprite
@@ -78,13 +78,13 @@ OogaahPlayLog.prototype.SetUp = function() {
 	}
 	
 	// set up the log back graphic
-	var texBack = nmgrs.resMan.mTexStore.GetResource("logBack");
+	var texBack = nmgrs.resMan.mTextureStore.GetResource("logBack");
 	this.mLogBack.SetTexture(texBack);
 	this.mLogBack.SetPosition(new Vec2(this.mPos.mX - 42, this.mPos.mY - 10));
 	this.mLogBack.mDepth = -45;
 	
 	// set up the log front graphics
-	var texFront = nmgrs.resMan.mTexStore.GetResource("logFront");
+	var texFront = nmgrs.resMan.mTextureStore.GetResource("logFront");
 	this.mLogFront.SetTexture(texFront);
 	this.mLogFront.SetPosition(new Vec2(this.mPos.mX - 42, this.mPos.mY - 10));
 	this.mLogFront.mDepth = -55;

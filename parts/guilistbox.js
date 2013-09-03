@@ -22,7 +22,7 @@ GUIListBox.prototype.SetUp = function(pos, depth, arrowTex) {
 	this.mDepth = depth;
 	
 	{
-		var tex = nmgrs.resMan.mTexStore.GetResource(arrowTex);
+		var tex = nmgrs.resMan.mTextureStore.GetResource(arrowTex);
 		
 		{
 			this.mTopArrow.SetUp(pos, new Vec2(0, 0), this.mDepth);

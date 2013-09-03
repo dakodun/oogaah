@@ -99,7 +99,7 @@ OogaahOptionsScene.prototype.SetUp = function() {
 	}
 	
 	{
-		var tex = nmgrs.resMan.mTexStore.GetResource("buttonLarge");
+		var tex = nmgrs.resMan.mTextureStore.GetResource("buttonLarge");
 		var fnt = nmgrs.resMan.mFontStore.GetResource("kingthings");
 		
 		this.mBackButton.SetUp(new Vec2(265, 424), new Vec2(109, 29), 0);
@@ -128,7 +128,7 @@ OogaahOptionsScene.prototype.SetUp = function() {
 		this.mLogHeader.SetUp(new Vec2(65, 60));
 		
 		{
-			var texCB = nmgrs.resMan.mTexStore.GetResource("optionsCheck");
+			var texCB = nmgrs.resMan.mTextureStore.GetResource("optionsCheck");
 			var fnt = nmgrs.resMan.mFontStore.GetResource("oldmansans");
 			var pos = new Vec2(100, 140);
 			

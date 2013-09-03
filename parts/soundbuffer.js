@@ -29,16 +29,23 @@ SoundBuffer.prototype.Type = function() {
 };
 
 // loads a soundbuffer from a file
-SoundBuffer.prototype.LoadFromFile = function(source) {
-	this.mAud.mLoaded = "";
+SoundBuffer.prototype.LoadFromFile = function(source, types) {
+	this.mAud.mLoaded = ""; // reset the audio object's load status
 	
-	var supportTest = new Audio();
-	if (supportTest.canPlayType("audio/wav") != "") {
-		this.mAud.src = source + ".wav";
+	var arr = types.split(","); // delimit types at ","
+	for (var i = 0; i < arr.length; ++i) { // for all types
+		arr[i] = arr[i].replace(" ", ""); // remove superfluous spaces from type
+		
+		var supportTest = new Audio(); // create a new audio object for testing
+		
+		// if the current type is supported, try and load it
+		if (supportTest.canPlayType && supportTest.canPlayType("audio/" + arr[i]) != "") {
+			this.mAud.src = source + "." + arr[i]; // set the source file of the audio
+			return; // success, exit the function
+		}
 	}
-	else {
-		this.mAud.src = source + ".aac";
-	}
+	
+	this.mAud.mLoaded = "error"; // if we reach here, none of the formats were supported
 }
 // ...End
 
