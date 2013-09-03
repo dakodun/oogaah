@@ -32,7 +32,7 @@ OogaahMenuScene.prototype.SetUp = function() {
 	
 	this.mMenuControl.SetUp();
 	
-	var tex = nmgrs.resMan.mTexStore.GetResource("menuLogo");
+	var tex = nmgrs.resMan.mTextureStore.GetResource("menuLogo");
 	this.mLogo.SetTexture(tex);
 	this.mLogo.SetPosition(new Vec2(10, 10));
 }
