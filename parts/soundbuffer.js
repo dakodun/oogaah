@@ -1,14 +1,11 @@
 // SoundBuffer Class...
 // 
 function SoundBuffer() {
-	this.mAud = new Audio();
-	this.mAud.mLoaded = "";
-	
-	this.mAud.controls = false;
-	this.mAud.loop = false;
+	this.mAud = new Audio(); // the html5 audio element
+	this.mAud.mLoaded = ""; // the audio element's load status
 	
 	// called when the audio successfully loads
-	this.mAud.oncanplay = function() {
+	this.mAud.oncanplaythrough = function() {
 		this.mLoaded = "load";
 	}
 	
