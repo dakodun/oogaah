@@ -12,85 +12,68 @@ OogaahTutorialHuman.prototype = Object.create(OogaahHuman.prototype);
 // logic called when the play button is clicked in the player gui
 OogaahTutorialHuman.prototype.OnPlay = function() {
 	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
-	
-	var match = true; // assume a match initially
-	
-	{
-		var arr = new Array(); arr = util.ConcatArray(arr, this.GetSelected()); // get the currently selected cards
-		
-		if (this.mDesired.length > 0) { // if we have desired cards
-			if (arr.length == this.mDesired[0].mCards.length) { // if the lengths match then we potentially have a match
-				if (arr.length > 0) {
-					for (var i = 0; i < arr.length; ++i) { // for all cards in both arrays
-						// if the cards don't match
-						if (arr[i].mCardAttack != this.mDesired[0].mCards[i].mCardAttack ||
-								arr[i].mCardValue != this.mDesired[0].mCards[i].mCardValue) {
-							
-							match = false; // indicated no match
-							break; // stop
-						}
-					}
-				}
-				else {
-					match = false;
-				}
-			}
-			else { // otherwise, mismatched lengths indicate no match
-				match = false;
-			}
-		}
-		else { // otherwise, no desired cards
-			match = false;
-		}
-	}
-	
-	if (match == false) { // if we didn't get a match
-		if (this.mDesired.length > 0) {
-			++currScene.mShowMessage;
-			currScene.mMessageQueue.InsertMessage(this.mDesired[0].mPos, this.mDesired[0].mString, this.mDesired[0].mSize,
-					this.mDesired[0].mArrowDir, this.mDesired[0].mArrowOff,
-					this.mDesired[0].mFadePos, this.mDesired[0].mFadeSize,
-					0);
-			currScene.mMessageQueue.mQueue[0].SetTimeout(0.4);
-		}
-	}
-	else {
-		currScene.mShowMessage += this.mDesired[0].mShowMessageInc;
-		this.mDesired.splice(0, 1);
-		
+
+	var success = false; // is our desired play successful
+	if (this.mDesired.length > 0) { // if the is at least 1 desired card
 		if (this.mMode == 5 && this.mSubMode == "b") { // if we are in goblin technician mode (submode b)
-			for (var i = 0; i < this.mHand.mCards.length; ++i) { // for all cards
-				this.mSelectedCards[i] = 3; // set cards to single-selectable (3)
-				this.mHand.mCards[i].mDarken = false;
+			// if there is a desired card (a card means accept decision)
+			if (this.mDesired[0].mCards.length > 0) {
+				for (var i = 0; i < this.mHand.mCards.length; ++i) { // for all cards
+					this.mSelectedCards[i] = 3; // set cards to single-selectable (3)
+					this.mHand.mCards[i].mDarken = false;
+				}
+				
+				this.mGUI.mDisplayCard = null;
+				
+				// update player gui text
+				this.mGUI.mButtonText[0].SetString("Swap Card");
+				this.mGUI.ShowMessage(true, "Choose which card to swap or pass.");
+				
+				this.mSubMode = "c"; // change to submode c
+				
+				success = true; // play was successful
 			}
-			
-			this.mGUI.mDisplayCard = null;
-			
-			// update player gui text
-			this.mGUI.mButtonText[0].SetString("Swap Card");
-			this.mGUI.ShowMessage(true, "Choose which card to swap or pass.");
-			
-			this.mSubMode = "c"; // change to submode c
 		}
 		else if (this.mMode == 6) { // otherwise if we are in orc shaman mode
-			currScene.mReversed = !currScene.mReversed; // reverse the current game values
-			
-			// update player gui text
-			this.mGUI.mButtonText[0].SetString("Play");
-			this.mGUI.ShowMessage(false);
-			
-			currScene.mLog.AddEntry(3, this.mName + " reversed card values for this skirmish."); // add entry to the play log
-			
-			this.mMode = 0; // reset to mode 0
-			this.ResetSelected(); // reset selected states
-			currScene.ChangePlayer(); // change to the next player
-			currScene.mDelay = 1000;
+			// if there is a desired card (a card means accept decision)
+			if (this.mDesired[0].mCards.length > 0) {
+				currScene.mReversed = !currScene.mReversed; // reverse the current game values
+				
+				// update player gui text
+				this.mGUI.mButtonText[0].SetString("Play");
+				this.mGUI.ShowMessage(false);
+				
+				currScene.mLog.AddEntry(3, this.mName + " reversed card values for this skirmish."); // add entry to the play log
+				
+				this.mMode = 0; // reset to mode 0
+				this.ResetSelected(); // reset selected states
+				currScene.ChangePlayer(); // change to the next player
+				currScene.mDelay = 1000;
+				
+				success = true; // play was successful
+			}
 		}
 		else { // otherwise we are in normal play
+			// check that selected match desired
 			var arr = new Array(); arr = util.ConcatArray(arr, this.GetSelected()); // get the currently selected cards
-			if (arr.length > 0) { // if we have selected at least 1 card
-				arr[0].Play(arr); // play that/those cards
-				currScene.mDelay = 1000;
+			
+			// if the lengths match and are not 0 then we potentially have a match
+			if (arr.length > 0 && arr.length == this.mDesired[0].mCards.length) {
+				success = true; // assume we have a success (adjusted later if not true)
+				for (var i = 0; i < arr.length; ++i) { // for all cards in both arrays
+					// if the cards don't match
+					if (arr[i].mCardAttack != this.mDesired[0].mCards[i].mCardAttack ||
+							arr[i].mCardValue != this.mDesired[0].mCards[i].mCardValue) {
+						
+						success = false; // turns out we have no success
+						break; // stop
+					}
+				}
+				
+				if (success == true) { // if we still have success
+					arr[0].Play(arr); // play that/those cards
+					currScene.mDelay = 1000;
+				}
 			}
 		}
 		
@@ -109,8 +92,25 @@ OogaahTutorialHuman.prototype.OnPlay = function() {
 			this.mFinished = true;
 		}
 		
-		if (this.mDesired.length == 0) {
-			currScene.mFinished = true;
+		if (success == true) { // if we made a successfule play
+			// increment message display and remove desired cards
+			currScene.mShowMessage += this.mDesired[0].mShowMessageInc;
+			this.mDesired.splice(0, 1);
+		}
+		else {
+			if (this.mDesired.length > 0) { // if there is at least 1 desired card
+				// increment message display and add the error message to the front of the queue
+				++currScene.mShowMessage;
+				currScene.mMessageQueue.InsertMessage(this.mDesired[0].mPos, this.mDesired[0].mString, this.mDesired[0].mSize,
+						this.mDesired[0].mArrowDir, this.mDesired[0].mArrowOff,
+						this.mDesired[0].mFadePos, this.mDesired[0].mFadeSize,
+						0);
+				currScene.mMessageQueue.mQueue[0].SetTimeout(0.4);
+			}
+		}
+		
+		if (this.mDesired.length == 0) { // if there are no more desired cards
+			currScene.mFinished = true; // we are done with the tutorial
 		}
 	}
 }
@@ -277,6 +277,130 @@ OogaahTutorialHuman.prototype.OnPass = function() {
 		
 		if (this.mDesired.length == 0) {
 			currScene.mFinished = true;
+		}
+	}
+}
+
+// logic to handle user input when relating to goblin technician's ability
+OogaahHuman.prototype.HandleGoblinTechnician = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+	
+	if (this.mMode == 5) { // if we are in goblin technician mode
+		if (this.mSubMode == "a") { // if we are in submode a
+			this.mChosenPlayer = null; // reset chosen player to null
+			var found = false; // selected player hand not found
+			var player = null; // selected player is null
+			
+			for (var i = 0; i < 4; ++i) { // for all other players
+				if (i != this.mPlayerID) {
+					var p = currScene.mPlayers[i]; // store a reference to the player
+					var hand = p.mHand; // store a reference to the player's hand
+					
+					p.Highlight(false); // player isn't highlighted
+					
+					if (found == false) { // if we haven't yet found a player hand
+						if (p.HandHighlighted() == true) { // if we are hovering over the current player's hand
+							player = currScene.mPlayers[i]; // store the reference to that player
+							this.mChosenPlayer = hand; // store a reference to that player's hand
+							this.mChosenID = i; // store that players id
+							
+							found = true; // indicate we have found a player
+							p.Highlight(true); // highlight the current player's hand
+						}
+					}
+				}
+			}
+			
+			if (this.mChosenPlayer == null) { // if we didn't find a player previously
+				player = currScene.mGraveyard; // store a reference to the graveyard
+				
+				player.Highlight(false); // graveyard isn't highlighted
+				if (currScene.mGraveyard.HandHighlighted() == true) { // if we are hovering over the current graveyard
+					this.mChosenPlayer = currScene.mGraveyard; // store a reference to the graveyard
+					this.mChosenID = -1; // store the graveyards id (-1)
+					
+					player.Highlight(true); // highlight the graveyard
+				}
+			}
+			
+			if (nmgrs.inputMan.GetMousePressed(nmouse.button.code.left) == true) { // if left mouse button is clicked
+				if (this.mChosenPlayer != null) { // if we have found a player (inc. the graveyard)
+					var match = true; // assume a match initially
+					
+					{
+						if (this.mDesired.length > 0) { // if we have desired cards
+							if (this.mDesired[0].mCards.length > 1) { // 
+								if (this.mDesired[0].mCards[0].mCardValue != this.mChosenID) {
+									match = false;
+								}
+							}
+							else { // 
+								match = false;
+							}
+						}
+						else { // otherwise, no desired cards
+							match = false;
+						}
+					}
+					
+					if (match == false) { // if we didn't get a match
+						if (this.mDesired.length > 0) {
+							++currScene.mShowMessage;
+							currScene.mMessageQueue.InsertMessage(this.mDesired[0].mPos, this.mDesired[0].mString, this.mDesired[0].mSize,
+									this.mDesired[0].mArrowDir, this.mDesired[0].mArrowOff,
+									this.mDesired[0].mFadePos, this.mDesired[0].mFadeSize,
+									0);
+							currScene.mMessageQueue.mQueue[0].SetTimeout(0.4);
+						}
+					}
+					else { // if it is the desired player
+						if (this.mChosenPlayer.mCards.length > 0) { // if the player has at least 1 card
+							// select a card from the chosen player's hand
+							this.mChosenCard = this.mDesired[0].mCards[1].mCardValue;
+							
+							{
+								this.mGUI.mDisplayCard = this.mChosenPlayer.mCards[this.mChosenCard].GetCopy();
+								this.mGUI.mDisplayCard.mHidden = false;
+								this.mGUI.mDisplayCard.mDarken = false;
+								this.mGUI.mDisplayCard.mSize = 1;
+								this.mGUI.mDisplayCard.mCardSprites[1].SetOrigin(new Vec2());
+								this.mGUI.mDisplayCard.mCardSprites[1].SetPosition(new Vec2(246, 121));
+								this.mGUI.mDisplayCard.mCardSprites[1].SetRotation(0);
+								this.mGUI.mDisplayCard.mCardSprites[1].mDepth = -10;
+								
+								// if the card is a human peasant or an orc berserker
+								if (this.mGUI.mDisplayCard.mCardAttack == "3" || this.mGUI.mDisplayCard.mCardAttack == "C") {
+									this.mGUI.mDisplayCard.PositionValueText();
+								}
+							}
+							
+							player.Highlight(false); // unhighlight the chosen player
+							for (var i = 0; i < 4; ++i) { // for all other players
+								if (i != this.mPlayerID) {
+									currScene.mPlayers[i].mSelectable = false; // player can't be selected
+								}
+							}
+							
+							currScene.mGraveyard.mSelectable = false; // graveyard can't be selected
+							
+							// update player gui text
+							this.mGUI.mButtons[0].mActive = true;
+							this.mGUI.mButtonCovers[0].mActive = true;
+							this.mGUI.mButtonText[0].SetString("Accept");
+							this.mGUI.ShowMessage(true, "Choose to accept " + this.mChosenPlayer.mCards[this.mChosenCard].mCardType +
+									" " + this.mChosenPlayer.mCards[this.mChosenCard].mCardName + " or pass.");
+							
+							this.mSubMode = "b"; // enter submode b
+							
+							currScene.mShowMessage += this.mDesired[0].mShowMessageInc;
+							this.mDesired.splice(0, 1);
+						}
+					}
+				}
+			}
+			else { // otherwise if no mouse button was pressed
+				this.mChosenPlayer = null; // reset the selected player to null
+			}
 		}
 	}
 }
