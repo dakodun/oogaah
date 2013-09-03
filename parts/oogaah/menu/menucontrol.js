@@ -78,6 +78,8 @@ function OogaahMenuControl() {
 	
 	this.mOptionsAnimState = "out"; // the current state of the menu (in terms of animation)
 	this.mAnimatedCount = 0; // the count of options fully animated
+	
+	this.mCardOptionControl = new OogaahCardOptionControl();
 };
 
 // set up the menu control
@@ -86,11 +88,17 @@ OogaahMenuControl.prototype.SetUp = function() {
 		var yOff = 420; // the initial y-offset
 		
 		for (var i = 0; i < this.mMenuOptions.length; ++i) { // for all options
+			var shape = this.mMenuOptions[i].mBack; // reference to option's shape
+			
+			// make a 'fully animated' shape to set its collision mask
+			shape.MakeRectangle(new Vec2(-80, yOff), new Vec2(nmain.game.mCanvasSize.mX + 160, 32));
+			shape.SetMask();
+			
 			// make a rectangle shape and set its attributes
-			this.mMenuOptions[i].mBack.MakeRectangle(new Vec2(-80, yOff), new Vec2(80, 32));
-			this.mMenuOptions[i].mBack.SetSkew(new Vec2(15, 0));
-			this.mMenuOptions[i].mBack.mColour = "#FAF1CE";
-			this.mMenuOptions[i].mBack.mAlpha = 0.5;
+			shape.MakeRectangle(new Vec2(-80, yOff), new Vec2(80, 32));
+			shape.SetSkew(new Vec2(15, 0));
+			shape.mColour = "#FAF1CE";
+			shape.mAlpha = 0.5;
 			
 			yOff += 40; // increment the y-offset
 		}
@@ -113,6 +121,8 @@ OogaahMenuControl.prototype.SetUp = function() {
 	}
 	
 	this.mOptionsAnimState = "out"; // set initial animation state to 'out' (fully unloaded)
+	
+	this.mCardOptionControl.SetUp();
 }
 
 // handles user input
@@ -124,12 +134,22 @@ OogaahMenuControl.prototype.Input = function() {
 					this.mMode = "gameStart"; // go to "game start"
 					this.mOptionsAnimState = "animOut";
 				}
+				else if (this.mMode == "selectTutorial") { // if we are in "select tutorial"
+					this.mSubMode = "basicRules"; // go to "basic rules" submode
+					this.mOptionsAnimState = "animOut";
+				}
+				
 				break;
 			case 1 :
 				if (this.mMode == "mainMenu") { // if we are in "main menu"
 					this.mMode = "selectTutorial"; // go to "select tutorial"
 					this.mOptionsAnimState = "animOut";
 				}
+				else if (this.mMode == "selectTutorial") { // if we are in "select tutorial"
+					this.mSubMode = "screenLayout"; // go to "screen layout" submode
+					this.mOptionsAnimState = "animOut";
+				}
+				
 				break;
 			case 2 :
 				if (this.mMode == "selectTutorial") { // if we are in "select tutorial"
@@ -152,6 +172,9 @@ OogaahMenuControl.prototype.Input = function() {
 						this.mOptionsAnimState = "animOut";
 					}
 					else if (this.mSubMode == "selectCard") { // otherwise if we are in "select card" submode
+						this.mCardOptionControl.mCurrentCard = 0;
+						this.mCardOptionControl.Update();
+						
 						this.mSubMode = "none"; // reset to no submode
 						this.mOptionsAnimState = "animOut";
 					}
@@ -159,6 +182,12 @@ OogaahMenuControl.prototype.Input = function() {
 				
 				break;
 		}
+	}
+	
+	// process the card option ui and if it returns a value greater than -1
+	if (this.mCardOptionControl.Input() > -1) {
+		this.mSubMode = "cardSelected"; // go to "card selected" submode
+		this.mOptionsAnimState = "animOut";
 	}
 }
 
@@ -186,6 +215,10 @@ OogaahMenuControl.prototype.Process = function() {
 			
 			this.mMenuOptions[i].SetHighlight(state); // set the highlighted state of the option
 		}
+		
+		if (this.mMode == "selectTutorial" && this.mSubMode == "selectCard") {
+			this.mCardOptionControl.Process();
+		}
 	}
 	else if (this.mOptionsAnimState == "out") { // otherwise if menu has fully unloaded
 		this.SwitchModes(); // switch modes
@@ -209,6 +242,11 @@ OogaahMenuControl.prototype.GetRenderData = function() {
 		}
 	}
 	
+	// if we are in select tutorial mode, select card sub mode and menu animation state is 'in'
+	if (this.mMode == "selectTutorial" && this.mSubMode == "selectCard" && this.mOptionsAnimState == "in") {
+		arr = util.ConcatArray(arr, this.mCardOptionControl.GetRenderData()); // add the card option ui
+	}
+	
 	return arr; // return the menu renderables
 }
 
@@ -230,13 +268,21 @@ OogaahMenuControl.prototype.SwitchModes = function() {
 			break;
 		case "selectTutorial" :
 			if (this.mSubMode == "none") {
-				this.mMenuOptions[0].SetState("Fill", "-", true); // Learn the Basic Game Rules
-				this.mMenuOptions[1].SetState("Fill", "-", true); // Learn the Screen Layout
+				this.mMenuOptions[0].SetState("Fill", "Learn the Basic Game Rules", true);
+				this.mMenuOptions[1].SetState("Fill", "Learn the Screen Layout", true);
 				this.mMenuOptions[2].SetState("Fill", "Learn the Card Abilities", true);
 				this.mMenuOptions[3].SetState("Fill", "Play an Example Round", true);
 				this.mMenuOptions[4].SetState("Fill", "Back", true);
 				
 				this.mOptionsAnimState = "animIn";
+			}
+			else if (this.mSubMode == "basicRules") { // if we are in "basic rules" sub mode
+				nmgrs.sceneMan.RequestSceneChange(new OogaahTutorialScene());
+				nmgrs.sceneMan.mReadyScene.mTutorialContent = new OogaahTutorialContent1();
+			}
+			else if (this.mSubMode == "screenLayout") { // if we are in "screen layout" sub mode
+				nmgrs.sceneMan.RequestSceneChange(new OogaahTutorialScene());
+				nmgrs.sceneMan.mReadyScene.mTutorialContent = new OogaahTutorialContent2();
 			}
 			else if (this.mSubMode == "selectCard") { // if we are in "select card" sub mode
 				this.mMenuOptions[0].SetState("LineLoop", null, false);
@@ -247,9 +293,13 @@ OogaahMenuControl.prototype.SwitchModes = function() {
 				
 				this.mOptionsAnimState = "animIn";
 			}
+			else if (this.mSubMode == "cardSelected") { // if we are in "card selected" sub mode
+				nmgrs.sceneMan.RequestSceneChange(new OogaahTutorialScene());
+				nmgrs.sceneMan.mReadyScene.mTutorialContent = this.mCardOptionControl.mContent;
+			}
 			else if (this.mSubMode == "exampleHand") { // if we are in "example hand" sub mode
 				nmgrs.sceneMan.RequestSceneChange(new OogaahTutorialScene());
-				nmgrs.sceneMan.mReadyScene.mTutorialContent = new OogaahTutorialMessageContent4();
+				nmgrs.sceneMan.mReadyScene.mTutorialContent = new OogaahTutorialContent4();
 			}
 			
 			break;
@@ -258,107 +308,94 @@ OogaahMenuControl.prototype.SwitchModes = function() {
 
 // controls all logic related to animating the menu in and out
 OogaahMenuControl.prototype.AnimateMenu = function() {
-	if (this.mOptionsAnimState == "animIn") { // if menu is loading 'in'
+	if (this.mOptionsAnimState == "animIn") { // if menu is animating in
 		for (var i = 0; i < this.mMenuOptions.length; ++i) { // for all options
-			// if the first menu option back shape has not yet fully animated
-			if (this.mMenuOptions[i].mBack.mPoints[0].mX < nmain.game.mCanvasSize.mX + 160) {
-				var animate = false; // should we animate
-				if (i > 0) { // if we are not on the first element
-					// if the previous element has breached a certain point
-					if (this.mMenuOptions[i - 1].mBack.mPoints[0].mX > 144) {
-						animate = true; // we should animated
-					}
+			var option = this.mMenuOptions[i]; // reference to the current option
+			var shape = option.mBack; // reference to the current option's shape
+			var text = option.mText; // reference to the current option's text
+			
+			if (option.mAnimatedStatus != true) { // if the option hasn't yet fully animated
+				if (option.mShow == false) { // if the option is not visible
+					// immediately fully animate the option
+					shape.MakeRectangle(shape.mPos, new Vec2(nmain.game.mCanvasSize.mX + 160, shape.mSize.mY));
+					text.mAlpha = 1.0;
 				}
 				
-				if (i == 0 || animate == true) { // if we are on the first element or should animate
-					if (this.mMenuOptions[i].mShow == false) { // if the option is not to be drawn
-						// fully animate it immediately
-						var shp = this.mMenuOptions[i].mBack;
-						shp.MakeRectangle(shp.mPos, new Vec2(nmain.game.mCanvasSize.mX + 160, shp.mSize.mY));
-					}
-					else { // otherwise it is shown
-						var shp = this.mMenuOptions[i].mBack; // reference the back shape
-						shp.MakeRectangle(shp.mPos, new Vec2(shp.mSize.mX + 16, shp.mSize.mY)); // increase the length of the shape
-					}
-				}
-			}
-			else { // otherwise it has fully loaded
-				if (this.mMenuOptions[i].mText.mAlpha < 1.0) { // if the text is not yet fully opaque
-					if (this.mMenuOptions[i].mShow == false) { // if the option is not to be drawn
-						this.mMenuOptions[i].mText.mAlpha = 1.0; // fully animate it immediately
-					}
-					else { // otherwise it is shown
-						this.mMenuOptions[i].mText.mAlpha += 0.1; // increase the alpha value
-					}
-				}
-				else { // otherwise text is fully opaque
-					// if option has yet to be fully animated
-					if (this.mMenuOptions[i].mAnimatedStatus != true) {
-						this.mMenuOptions[i].mBack.SetMask(); // so set the collision mask (for user interaction)
-						
-						this.mMenuOptions[i].mAnimatedStatus = true; // set option as fully animated
-						++this.mAnimatedCount; // increment the count
+				if (shape.mPoints[0].mX < nmain.game.mCanvasSize.mX + 160) { // if the shape hasn't finished animating
+					var animate = false; // assume animation hasn't started yet
+					if (i > 0) { // if this isn't the first option
+						// if the previous option's animation has reached a certain point
+						if (this.mMenuOptions[i - 1].mBack.mPoints[0].mX > 144) {
+							animate = true; // begin animation
+						}
 					}
 					
-					if (this.mAnimatedCount == this.mMenuOptions.length) { // if all items are loaded
-						this.mOptionsAnimState = "in"; // once last shape is fully loaded, we are done
+					if (i == 0 || animate == true) { // if this is the first option or animation is to begin
+						shape.MakeRectangle(shape.mPos, new Vec2(shape.mSize.mX + 16, shape.mSize.mY)); // animate shape
+					}
+				}
+				else if (text.mAlpha < 1.0) { // otherwise if the text hasn't finished animating
+					text.mAlpha += 0.1; // animate text
+				}
+				else { // otherwise if animation is done
+					option.mAnimatedStatus = true; // option has finished animating
+					++this.mAnimatedCount; // increase finished count
+					
+					if (this.mAnimatedCount == this.mMenuOptions.length) { // if all options have finished
+						this.mOptionsAnimState = "in"; // update menu's animation state
 						
-						this.AnimateMenuResetStatus(); // reset the animated status
+						this.AnimateMenuResetStatus(); // reset all options' animation status
+						break; // stop processing
 					}
 				}
 			}
 		}
 	}
-	else if (this.mOptionsAnimState == "animOut") { // otherwise if menu is loading 'out'
-		for (var i = this.mMenuOptions.length - 1; i >= 0; --i) { // for all shapes
-			if (this.mMenuOptions[i].mText.mAlpha > 0.0) { // if the text is not yet fully transparent
-				var animate = false; // should we animate
-				if (i < this.mMenuOptions.length - 1) { // if we are not on the last element
-					// if the next element has breached a certain alpha value
-					if (this.mMenuOptions[i + 1].mText.mAlpha == 0.0) {
-						animate = true; // we should animated
-					}
+	else if (this.mOptionsAnimState == "animOut") { // otherwise if menu is animating in
+		for (var i = this.mMenuOptions.length - 1; i >= 0; --i) { // for all options
+			var option = this.mMenuOptions[i]; // reference to the current option
+			var shape = option.mBack; // reference to the current option's shape
+			var text = option.mText; // reference to the current option's text
+			
+			if (option.mAnimatedStatus != true) { // if the option hasn't yet fully animated
+				if (option.mShow == false) { // if the option is not visible
+					// immediately fully animate the option
+					this.mMenuOptions[i].mText.mAlpha = 0.0;
+					shape.MakeRectangle(shape.mPos, new Vec2(80, shape.mSize.mY));
 				}
 				
-				if (i == this.mMenuOptions.length - 1 || animate == true) {
-					if (this.mMenuOptions[i].mShow == false) { // if the option is not to be drawn
-						this.mMenuOptions[i].mText.mAlpha = 0.0; // fully animate it immediately
+				if (text.mAlpha > 0.0) { // if the text hasn't finished animating
+					var animate = false; // assume animation hasn't started yet
+					if (i < this.mMenuOptions.length - 1) { // if this isn't the first option
+						// if the previous option's animation has reached a certain point
+						if (this.mMenuOptions[i + 1].mText.mAlpha == 0.0) {
+							animate = true; // begin animation
+						}
 					}
-					else { // otherwise it is shown
-						this.mMenuOptions[i].mText.mAlpha -= 0.2; // decrease the alpha value
-						if (this.mMenuOptions[i].mText.mAlpha < 0.0) {
-							this.mMenuOptions[i].mText.mAlpha = 0.0;
+					
+					// if this is the first option or animation is to begin
+					if (i == this.mMenuOptions.length - 1 || animate == true) {
+						text.mAlpha -= 0.2; // animate text
+						
+						if (text.mAlpha < 0.0) { // if alpha is below 0
+							text.mAlpha = 0.0; // reset it to 0
 						}
 					}
 				}
-			}
-			else { // otherwise text is fully transparent
-				if (this.mMenuOptions[i].mBack.mPoints[0].mX > 80) {
-					if (this.mMenuOptions[i].mShow == false) { // if the option is not to be drawn
-						// fully animate it immediately
-						var shp = this.mMenuOptions[i].mBack;
-						shp.MakeRectangle(shp.mPos, new Vec2(80, shp.mSize.mY));
-					}
-					else { // otherwise it is shown
-						var shp = this.mMenuOptions[i].mBack; // reference the back shape
-						shp.MakeRectangle(shp.mPos, new Vec2(shp.mSize.mX - 16, shp.mSize.mY)); // increase the length of the shape
-					}
+				else if (shape.mPoints[0].mX > 80) { // otherwise if the shape hasn't finished animating
+					shape.MakeRectangle(shape.mPos, new Vec2(shape.mSize.mX - 16, shape.mSize.mY)); // animate shape
 				}
-				else { // otherwise 
-					// if option has yet to be fully animated
-					if (this.mMenuOptions[i].mAnimatedStatus != true) {
-						this.mMenuOptions[i].mBack.SetMask(); // so set the collision mask (for user interaction)
-						this.mMenuOptions[i].mBack.mAlpha = 0.5;
-						this.mMenuOptions[i].mText.SetScale(new Vec2(1.0, 1.0));
-						
-						this.mMenuOptions[i].mAnimatedStatus = true; // set option as fully animated
-						++this.mAnimatedCount; // increment the count
-					}
+				else {
+					option.SetHighlight(false); // make sure option isn't highlighted
 					
-					if (this.mAnimatedCount == this.mMenuOptions.length) { // if all items are loaded
-						this.mOptionsAnimState = "out"; // once last shape is fully loaded, we are done
+					option.mAnimatedStatus = true; // option has finished animating
+					++this.mAnimatedCount; // increase finished count
+					
+					if (this.mAnimatedCount == this.mMenuOptions.length) { // if all options have finished
+						this.mOptionsAnimState = "out"; // update menu's animation state
 						
-						this.AnimateMenuResetStatus(); // reset the animated status
+						this.AnimateMenuResetStatus(); // reset all options' animation status
+						break; // stop processing
 					}
 				}
 			}
