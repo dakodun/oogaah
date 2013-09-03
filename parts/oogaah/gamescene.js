@@ -62,7 +62,7 @@ OogaahGameScene.prototype.SetUp = function() {
 		this.mBackColour.mDepth = 99999;
 		this.mBackColour.mColour = "#35251C"; */
 		
-		var tex = nmgrs.resMan.mTexStore.GetResource("gameBack");
+		var tex = nmgrs.resMan.mTextureStore.GetResource("gameBack");
 		this.mGameBack.SetTexture(tex);
 		this.mGameBack.SetPosition(new Vec2(2, 2));
 		this.mGameBack.mDepth = 99999;
@@ -107,7 +107,7 @@ OogaahGameScene.prototype.SetUp = function() {
 		this.mStatusAVText.mAlign = "centre";
 		this.mStatusAVText.SetString("0");
 		
-		var texAV = nmgrs.resMan.mTexStore.GetResource("statusAVBack");
+		var texAV = nmgrs.resMan.mTextureStore.GetResource("statusAVBack");
 		this.mStatusAVSprite.SetTexture(texAV);
 		this.mStatusAVSprite.SetPosition(new Vec2(pos.mX, pos.mY));
 		this.mStatusAVSprite.mDepth = 1;
@@ -120,14 +120,14 @@ OogaahGameScene.prototype.SetUp = function() {
 		this.mStatusSSText.mAlign = "centre";
 		this.mStatusSSText.SetString("0x");
 		
-		var texSS = nmgrs.resMan.mTexStore.GetResource("statusSSBack");
+		var texSS = nmgrs.resMan.mTextureStore.GetResource("statusSSBack");
 		this.mStatusSSSprite.SetTexture(texSS, 6, 1, -1, -1);
 		this.mStatusSSSprite.SetCurrentFrame(0);
 		this.mStatusSSSprite.SetPosition(new Vec2(pos.mX + 1, pos.mY + 38));
 		this.mStatusSSSprite.mDepth = 1;
 		
 		
-		var texIcons = nmgrs.resMan.mTexStore.GetResource("statusIcons");
+		var texIcons = nmgrs.resMan.mTextureStore.GetResource("statusIcons");
 		
 		this.mStatusWarrior.SetTexture(texIcons, 3, 3, -1, -1);
 		this.mStatusWarrior.SetCurrentFrame(1);
@@ -278,14 +278,14 @@ OogaahGameScene.prototype.Render = function() {
 
 OogaahGameScene.prototype.CreateCardList = function() {	
 	// load card face textures (large, medium and small)
-	var texLarge = nmgrs.resMan.mTexStore.GetResource("cardsLarge");
-	var texMedium = nmgrs.resMan.mTexStore.GetResource("cardsMedium");
-	var texSmall = nmgrs.resMan.mTexStore.GetResource("cardsSmall");
+	var texLarge = nmgrs.resMan.mTextureStore.GetResource("cardsLarge");
+	var texMedium = nmgrs.resMan.mTextureStore.GetResource("cardsMedium");
+	var texSmall = nmgrs.resMan.mTextureStore.GetResource("cardsSmall");
 	
 	// load card back textures (large, medium and small)
-	var texBackLarge = nmgrs.resMan.mTexStore.GetResource("cardBackLarge");
-	var texBackMedium = nmgrs.resMan.mTexStore.GetResource("cardBackMedium");
-	var texBackSmall = nmgrs.resMan.mTexStore.GetResource("cardBackSmall");
+	var texBackLarge = nmgrs.resMan.mTextureStore.GetResource("cardBackLarge");
+	var texBackMedium = nmgrs.resMan.mTextureStore.GetResource("cardBackMedium");
+	var texBackSmall = nmgrs.resMan.mTextureStore.GetResource("cardBackSmall");
 	
 	{ // add one of each card to the card list
 		this.mCardList.push(new OogaahCardGoblinHorde());
@@ -367,6 +367,10 @@ OogaahGameScene.prototype.DealCards = function(first) {
 	}
 	
 	this.mCurrPlayer = id; // set the current player
+	if (this.mPlayers[this.mCurrPlayer].mType == "AI") { // if the initial player is ai
+		this.mDelay = 1000; // add a delay before they play their first card
+	}
+	
 	for (var i = 0; i < this.mDeck.length; ++i) { // for all cards in the deck
 		this.mPlayers[id].mHand.AddCard(this.mDeck[i]); // add current card to current players hand
 		id = (id + 1) % 4; // go to next player
