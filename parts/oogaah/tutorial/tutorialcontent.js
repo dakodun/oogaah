@@ -205,11 +205,11 @@ OogaahTutorialContent.prototype.AddMessageAI = function(string, id, position) {
 	
 	if (position == null) {
 		currScene.mMessageQueue.PushMessage(pos, string, size, "up", arrowOff, hiPos, hiSize); // add the message to the queue
-		currScene.mMessageMeta.push(new Array("ai", string, new Array(id)));
+		currScene.mMessageMeta.push(new Array("ai", string, new Array(id, 0)));
 	}
 	else {
 		currScene.mMessageQueue.InsertMessage(pos, string, size, "up", arrowOff, hiPos, hiSize, position); // insert the message into the queue
-		currScene.mMessageMeta.splice(position, 0, new Array("ai", string, new Array(id)));
+		currScene.mMessageMeta.splice(position, 0, new Array("ai", string, new Array(id, 0)));
 	}
 }
 
