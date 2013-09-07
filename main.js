@@ -1639,19 +1639,13 @@ function Texture() {
 	this.mTypes = new Array(); // a list of the file types to load
 	
 	// called when the image successfully loads
-	this.mImg.onload = function() {
-		this.mLoaded = "load";
-	}
+	this.mImg.addEventListener("load",  function(){this.mLoaded = "load"}, false);
 	
 	// called when the image loading is cancelled
-	this.mImg.onabort = function() {
-		this.mLoaded = "abort";
-	}
+	this.mImg.addEventListener("abort",  function(){this.mLoaded = "abort"}, false);
 	
 	// called when the image fails to load
-	this.mImg.onerror = function() {
-		this.mLoaded = "error";
-	}
+	this.mImg.addEventListener("error",  function(){this.mLoaded = "error"}, false);
 };
 
 // returns the type of this object for validity checking
@@ -1749,19 +1743,13 @@ function SoundBuffer() {
 	this.mAud.mLoaded = ""; // the audio element's load status
 	
 	// called when the audio successfully loads
-	this.mAud.oncanplaythrough = function() {
-		this.mLoaded = "load";
-	}
+	this.mAud.addEventListener("canplaythrough",  function(){this.mLoaded = "load"}, false);
 	
 	// called when the audio loading is cancelled
-	this.mAud.onabort = function() {
-		this.mLoaded = "abort";
-	}
+	this.mAud.addEventListener("abort",  function(){this.mLoaded = "abort"}, false);
 	
 	// called when the audio fails to load
-	this.mAud.onerror = function() {
-		this.mLoaded = "error";
-	}
+	this.mAud.addEventListener("error",  function(){this.mLoaded = "error"}, false);
 };
 
 // returns the type of this object for validity checking
