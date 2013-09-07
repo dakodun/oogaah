@@ -3,7 +3,7 @@
 function OogaahBehaviourTutorial() {
 	OogaahBehaviourBase.apply(this, null); // construct the base class
 	
-	this.mDesired = new Array();
+	this.mDesired = new Array(); // an array of arrays of cards, making up the desired plays for the tutorial
 };
 
 // inherit the base class's prototype
@@ -118,19 +118,12 @@ OogaahBehaviourTutorial.prototype.DecideMode12 = function() {
 	return null; // return null
 }
 
-OogaahBehaviourTutorial.prototype.AddDesired = function(cards, string, inc, pos, size, adir, aoff, fadePos, fadeSize) {
+// adds a set of cards which act as a desired play to the player
+OogaahBehaviourTutorial.prototype.AddDesired = function(cards, msgInc) {
 	var desired = new OogaahTutorialDesired();
-	desired.mCards = util.ConcatArray(desired.mCards, cards);
-	desired.mString = string;
-	desired.mShowMessageInc = inc;
 	
-	desired.mPos.Copy(pos);
-	desired.mSize.Copy(size);
-	desired.mArrowDir = adir;
-	desired.mArrowOff = aoff;
-	
-	desired.mFadePos = fadePos;
-	desired.mFadeSize = fadeSize;
+	desired.mCards = util.ConcatArray(desired.mCards, cards); // add the cards
+	desired.mShowMessageInc = msgInc; // add the increment to the message iterator after successful play
 	
 	this.mDesired.push(desired);
 }

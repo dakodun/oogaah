@@ -3,7 +3,7 @@
 function OogaahTutorialHuman() {
 	OogaahHuman.apply(this, null); // construct the base class
 	
-	this.mDesired = new Array();
+	this.mDesired = new Array(); // an array of arrays of cards, making up the desired plays for the tutorial
 };
 
 // inherit the base class's prototype
@@ -92,20 +92,14 @@ OogaahTutorialHuman.prototype.OnPlay = function() {
 			this.mFinished = true;
 		}
 		
-		if (success == true) { // if we made a successfule play
+		if (success == true) { // if we made a successful play
 			// increment message display and remove desired cards
 			currScene.mShowMessage += this.mDesired[0].mShowMessageInc;
 			this.mDesired.splice(0, 1);
 		}
 		else {
 			if (this.mDesired.length > 0) { // if there is at least 1 desired card
-				// increment message display and add the error message to the front of the queue
-				++currScene.mShowMessage;
-				currScene.mMessageQueue.InsertMessage(this.mDesired[0].mPos, this.mDesired[0].mString, this.mDesired[0].mSize,
-						this.mDesired[0].mArrowDir, this.mDesired[0].mArrowOff,
-						this.mDesired[0].mFadePos, this.mDesired[0].mFadeSize,
-						0);
-				currScene.mMessageQueue.mQueue[0].SetTimeout(0.4);
+				currScene.AddRepeatMessage(); // add a repeated instruction message
 			}
 		}
 		
@@ -131,12 +125,7 @@ OogaahTutorialHuman.prototype.OnPass = function() {
 	
 	if (match == false) { // if we didn't get a match
 		if (this.mDesired.length > 0) {
-			++currScene.mShowMessage;
-			currScene.mMessageQueue.InsertMessage(this.mDesired[0].mPos, this.mDesired[0].mString, this.mDesired[0].mSize,
-					this.mDesired[0].mArrowDir, this.mDesired[0].mArrowOff,
-					this.mDesired[0].mFadePos, this.mDesired[0].mFadeSize,
-					0);
-			currScene.mMessageQueue.mQueue[0].SetTimeout(0.4);
+			currScene.AddRepeatMessage(); // add a repeated instruction message
 		}
 	}
 	else {
@@ -282,7 +271,7 @@ OogaahTutorialHuman.prototype.OnPass = function() {
 }
 
 // logic to handle user input when relating to goblin technician's ability
-OogaahHuman.prototype.HandleGoblinTechnician = function() {
+OogaahTutorialHuman.prototype.HandleGoblinTechnician = function() {
 	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
 	
 	if (this.mMode == 5) { // if we are in goblin technician mode
@@ -345,12 +334,7 @@ OogaahHuman.prototype.HandleGoblinTechnician = function() {
 					
 					if (match == false) { // if we didn't get a match
 						if (this.mDesired.length > 0) {
-							++currScene.mShowMessage;
-							currScene.mMessageQueue.InsertMessage(this.mDesired[0].mPos, this.mDesired[0].mString, this.mDesired[0].mSize,
-									this.mDesired[0].mArrowDir, this.mDesired[0].mArrowOff,
-									this.mDesired[0].mFadePos, this.mDesired[0].mFadeSize,
-									0);
-							currScene.mMessageQueue.mQueue[0].SetTimeout(0.4);
+							currScene.AddRepeatMessage(); // add a repeated instruction message
 						}
 					}
 					else { // if it is the desired player
@@ -405,20 +389,12 @@ OogaahHuman.prototype.HandleGoblinTechnician = function() {
 	}
 }
 
-// 
-OogaahTutorialHuman.prototype.AddDesired = function(cards, string, inc, pos, size, adir, aoff, fadePos, fadeSize) {
+// adds a set of cards which act as a desired play to the player
+OogaahTutorialHuman.prototype.AddDesired = function(cards, msgInc) {
 	var desired = new OogaahTutorialDesired();
-	desired.mCards = util.ConcatArray(desired.mCards, cards);
-	desired.mString = string;
-	desired.mShowMessageInc = inc;
 	
-	desired.mPos.Copy(pos);
-	desired.mSize.Copy(size);
-	desired.mArrowDir = adir;
-	desired.mArrowOff = aoff;
-	
-	desired.mFadePos = fadePos;
-	desired.mFadeSize = fadeSize;
+	desired.mCards = util.ConcatArray(desired.mCards, cards); // add the cards
+	desired.mShowMessageInc = msgInc; // add the increment to the message iterator after successful play
 	
 	this.mDesired.push(desired);
 }
