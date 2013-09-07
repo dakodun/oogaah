@@ -49,6 +49,8 @@ function Text() {
 	this.mWrap = false; // should this text wrap
 	this.mWrapWidth = 0; // the width that the text should wrap within when text wrap is true
 	this.mWrapWordLength = 6; // the minimum word length on which hyphenation can occur (minimum is 6)
+	
+	this.mLines = 0; // 
 };
 
 // inherit the base class's prototype
@@ -109,6 +111,8 @@ Text.prototype.Copy = function(other) {
 	this.mWrap = other.mWrap;
 	this.mWrapWidth = other.mWrapWidth;
 	this.mWrapWordLength = other.mWrapWordLength;
+	
+	this.mLines = other.mLines;
 }
 
 // return a deep copy of this text
@@ -335,7 +339,7 @@ Text.prototype.CreateTextParts = function() {
 	nmain.game.mCurrContext.font = this.mFontString; // set the current font to this font
 	
 	var txtArr = new Array();
-	var blockArr = this.mString.split("\n"); // split the text at any new line characters 
+	var blockArr = this.mString.split("\n"); // split the text at any new line characters
 	
 	if (this.mWrap == true) { // if text wrap is enabled
 		for (var i = 0; i < blockArr.length; ++i) { // for all current text strings ("\n" delimited)
@@ -414,6 +418,11 @@ Text.prototype.CreateTextParts = function() {
 	}
 	else { // otherwise no wrapping
 		txtArr.push(blockArr); // just add the line
+	}
+	
+	this.mLines = 0; // set the number of lines to 0
+	for (var i = 0; i < txtArr.length; ++i) { // for all text blocks
+		this.mLines += txtArr[i].length; // add the length of the block (number of lines) to the line count
 	}
 	
 	var vAlign = 0; // the vertical alignment of each text line (line number)
