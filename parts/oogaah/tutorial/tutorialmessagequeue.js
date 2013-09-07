@@ -165,7 +165,7 @@ OogaahTutorialMessageQueue.prototype.PushMessage = function(pos, string, size, d
 	
 	msg.mText.SetPosition(pos);
 	msg.mText.SetString(string);
-	msg.mText.EnableWrapping(size.mX - 10);
+	msg.mText.EnableWrapping(size.mX - 10, 10);
 	
 	msg.mTextContinue.SetPosition(pos);
 	msg.mTextContinue.SetOrigin(new Vec2(-size.mX + 5, -size.mY + 2));
@@ -188,7 +188,7 @@ OogaahTutorialMessageQueue.prototype.InsertMessage = function(pos, string, size,
 	
 	msg.mText.SetPosition(pos);
 	msg.mText.SetString(string);
-	msg.mText.EnableWrapping(size.mX - 10);
+	msg.mText.EnableWrapping(size.mX - 10, 10);
 	
 	msg.mTextContinue.SetPosition(pos);
 	msg.mTextContinue.SetOrigin(new Vec2(-size.mX + 5, -size.mY + 2));
