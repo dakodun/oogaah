@@ -67,7 +67,7 @@ OogaahTutorialContent.prototype.AddMessageCard = function(string, initial, numbe
 		}
 		else { // otherwise if it is any other card (and thus partially hidden)
 			// set the highlight to the visible part
-			hiPos.Set(96, 377);
+			hiPos.Set(96 + (20 * (initial - 1)), 377);
 			hiSize.Set(20, 103);
 		}
 		
