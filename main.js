@@ -1352,6 +1352,8 @@ SceneManager.prototype.ChangeScene = function() {
 			this.mCurrScene.SetUp(); // set up the new scene
 		}
 		
+		nmain.game.mTimer.Reset(); // reset the frame timer
+		
 		this.mReadyScene = null; // discard the readied scene
 	}
 }
@@ -1383,9 +1385,10 @@ function Resource(resource, resourceName) {
 
 // QueuedResource Class...
 // holds a resource name and the location of the resource
-function QueuedResource(resourceName, resourceLocation) {
+function QueuedResource(resourceName, resourceLocation, resourceTypes) {
 	this.mResName = resourceName; // the id of our resource (string)
 	this.mResLocation = resourceLocation; // the location of our resource on disk
+	this.mResTypes = resourceTypes; // 
 };
 // ...End
 
@@ -1452,16 +1455,16 @@ ResourceStore.prototype.GetResource = function(resourceName) {
 // ResourceStore Class...
 // handles the loading of a batch of asynchronous resources such as images or sounds
 function ResourceLoader() {
-	this.mTexQueue = new Array(); // the queue of unprocessed textures
+	this.mTextureQueue = new Array(); // the queue of unprocessed textures
 	this.mFontQueue = new Array(); // the queue of unprocessed fonts
-	this.mSndQueue = new Array(); // the queue of unprocessed audio
+	this.mSoundBufferQueue = new Array(); // the queue of unprocessed sound buffers
 	
 	this.mWorking = false; // indicates if our resourceloader is currently working
 	this.mIntervalID = null; // the handle of the interval that is checking the state of the resources
 };
 
 // adds a texture to the queue for future processing
-ResourceLoader.prototype.QueueTexture = function(texName, texLocation) {
+ResourceLoader.prototype.QueueTexture = function(texName, texLocation, texTypes) {
 	// replace with a binary search; queue already sorted, use more efficient insert
 	
 	// if we are currently processing resources then error
@@ -1470,15 +1473,15 @@ ResourceLoader.prototype.QueueTexture = function(texName, texLocation) {
 	}
 	
 	// for all textures in the queue
-	for (var i = 0; i < this.mTexQueue.length; ++i) {
+	for (var i = 0; i < this.mTextureQueue.length; ++i) {
 		// if we find a match to the one we are trying to add then error
-		if (this.mTexQueue[i].mResName == texName) {
+		if (this.mTextureQueue[i].mResName == texName) {
 			throw Exception("Resource already exists.");
 		}
 	}
 	
-	this.mTexQueue.push(new QueuedResource(texName, texLocation)); // add to the queue
-	this.mTexQueue.sort(ResourceSort); // sort the queue
+	this.mTextureQueue.push(new QueuedResource(texName, texLocation, texTypes)); // add to the queue
+	this.mTextureQueue.sort(ResourceSort); // sort the queue
 }
 
 // adds a font to the queue for future processing
@@ -1503,7 +1506,7 @@ ResourceLoader.prototype.QueueFont = function(fontName, fontLocation) {
 }
 
 // adds an audio file to the queue for future processing
-ResourceLoader.prototype.QueueSound = function(sndName, sndLocation) {
+ResourceLoader.prototype.QueueSoundBuffer = function(sndName, sndLocation, sndTypes) {
 	// replace with a binary search; queue already sorted, use more efficient insert
 	
 	// if we are currently processing resources then error
@@ -1512,15 +1515,15 @@ ResourceLoader.prototype.QueueSound = function(sndName, sndLocation) {
 	}
 	
 	// for all audio in the queue
-	for (var i = 0; i < this.mSndQueue.length; ++i) {
+	for (var i = 0; i < this.mSoundBufferQueue.length; ++i) {
 		// if we find a match to the one we are trying to add then error
-		if (this.mSndQueue[i].mResName == sndName) {
+		if (this.mSoundBufferQueue[i].mResName == sndName) {
 			throw Exception("Resource already exists.");
 		}
 	}
 	
-	this.mSndQueue.push(new QueuedResource(sndName, sndLocation)); // add to the queue
-	this.mSndQueue.sort(ResourceSort); // sort the queue
+	this.mSoundBufferQueue.push(new QueuedResource(sndName, sndLocation, sndTypes)); // add to the queue
+	this.mSoundBufferQueue.sort(ResourceSort); // sort the queue
 }
 
 // processes all resources currently in the queue
@@ -1528,10 +1531,10 @@ ResourceLoader.prototype.AcquireResources = function() {
 	this.mWorking = true; // indicate we are currently working
 	
 	// for all textures in the queue
-	for (var i = 0; i < this.mTexQueue.length; ++i) {
+	for (var i = 0; i < this.mTextureQueue.length; ++i) {
 		// add texture to resource manager and load the associated image
-		var tex = nmgrs.resMan.mTexStore.AddResource(new Texture(), this.mTexQueue[i].mResName);
-		tex.LoadFromFile(this.mTexQueue[i].mResLocation);
+		var tex = nmgrs.resMan.mTextureStore.AddResource(new Texture(), this.mTextureQueue[i].mResName);
+		tex.LoadFromFile(this.mTextureQueue[i].mResLocation, this.mTextureQueue[i].mResTypes);
 	}
 	
 	// for all fonts in the queue
@@ -1542,10 +1545,10 @@ ResourceLoader.prototype.AcquireResources = function() {
 	}
 	
 	// for all audio in the queue
-	for (var i = 0; i < this.mSndQueue.length; ++i) {
+	for (var i = 0; i < this.mSoundBufferQueue.length; ++i) {
 		// add audio to resource manager and load the associated file
-		var snd = nmgrs.resMan.mSndStore.AddResource(new SoundBuffer(), this.mSndQueue[i].mResName);
-		snd.LoadFromFile(this.mSndQueue[i].mResLocation);
+		var snd = nmgrs.resMan.mSoundBufferStore.AddResource(new SoundBuffer(), this.mSoundBufferQueue[i].mResName);
+		snd.LoadFromFile(this.mSoundBufferQueue[i].mResLocation, this.mSoundBufferQueue[i].mResTypes);
 	}
 }
 
@@ -1554,15 +1557,22 @@ ResourceLoader.prototype.ProgressCheck = function() {
 	// if we are currently working (otherwise no progress will be made)
 	if (this.mWorking == true) {
 		// for all textures in the queue
-		for (var i = 0; i < this.mTexQueue.length; ++i) {
+		for (var i = 0; i < this.mTextureQueue.length; ++i) {
 			// check if the texture has finished loading, whether or not it was successful
-			var tex = nmgrs.resMan.mTexStore.GetResource(this.mTexQueue[i].mResName);
-			if (tex.mImg.mLoaded == "load" || tex.mImg.mLoaded == "abort" || tex.mImg.mLoaded == "error") {
-				if (tex.mImg.mLoaded == "abort" || tex.mImg.mLoaded == "error") {
-					alert("Texture failed to load: " + tex.mImg.mLoaded);
+			var tex = nmgrs.resMan.mTextureStore.GetResource(this.mTextureQueue[i].mResName);
+			
+			if (tex.mImg.mLoaded == "load") { // if the texture loaded successfully
+				tex.mTypes.splice(0, tex.mTypes.length); // remove any stored types
+				this.mTextureQueue.splice(i, 1); // remove the texture from the unprocessed queue
+			}
+			else if (tex.mImg.mLoaded == "abort" || tex.mImg.mLoaded == "error") { // otherwise if it failed in any way
+				if (tex.mTypes.length > 0) { // if there are any types left to try
+					tex.LoadFromFile(this.mTextureQueue[i].mResLocation, null); // try to load the texture again using a previously supplied type
 				}
-				
-				this.mTexQueue.splice(i, 1); // remove the texture from the unprocessed queue
+				else {
+					alert("Texture failed to load: " + tex.mImg.mLoaded);
+					this.mTextureQueue.splice(i, 1); // remove the texture from the unprocessed queue
+				}
 			}
 		}
 		
@@ -1581,20 +1591,20 @@ ResourceLoader.prototype.ProgressCheck = function() {
 		}
 		
 		// for all audio in the queue
-		for (var i = 0; i < this.mSndQueue.length; ++i) {
+		for (var i = 0; i < this.mSoundBufferQueue.length; ++i) {
 			// check if the audio has finished loading, whether or not it was successful
-			var snd = nmgrs.resMan.mSndStore.GetResource(this.mSndQueue[i].mResName);
+			var snd = nmgrs.resMan.mSoundBufferStore.GetResource(this.mSoundBufferQueue[i].mResName);
 			if (snd.mAud.mLoaded == "load" || snd.mAud.mLoaded == "abort" || snd.mAud.mLoaded == "error") {
 				if (snd.mAud.mLoaded == "abort" || snd.mAud.mLoaded == "error") {
 					alert("Audio failed to load: " + snd.mAud.mLoaded);
 				}
 				
-				this.mSndQueue.splice(i, 1); // remove the audio from the unprocessed queue
+				this.mSoundBufferQueue.splice(i, 1); // remove the audio from the unprocessed queue
 			}
 		}
 		
 		// if our unprocessed queue is now empty
-		if (this.mTexQueue.length == 0 && this.mFontQueue.length == 0) { // && this.mSndQueue.length == 0) {
+		if (this.mTextureQueue.length == 0 && this.mFontQueue.length == 0 && this.mSoundBufferQueue.length == 0) {
 			this.mWorking = false; // we are finished working
 			clearInterval(this.mIntervalID); // stop checking for progress
 			this.mIntervalID = null; // clear interval handle
@@ -1614,9 +1624,9 @@ ResourceLoader.prototype.ProgressCheck = function() {
 // ResourceManager Class...
 // holds the resource stores for each individual resource type
 function ResourceManager() {
-	this.mTexStore = new ResourceStore(); // storage for our textures
+	this.mTextureStore = new ResourceStore(); // storage for our textures
 	this.mFontStore = new ResourceStore(); // storage for our fonts
-	this.mSndStore = new ResourceStore(); // storage for our audio
+	this.mSoundBufferStore = new ResourceStore(); // storage for our sound buffers
 };
 // ...End
 
@@ -1626,6 +1636,7 @@ function ResourceManager() {
 function Texture() {
 	this.mImg = new Image(); // the image associated with our texture
 	this.mImg.mLoaded = ""; // the load status of our image
+	this.mTypes = new Array(); // a list of the file types to load
 	
 	// called when the image successfully loads
 	this.mImg.onload = function() {
@@ -1649,9 +1660,25 @@ Texture.prototype.Type = function() {
 }
 
 // loads a texture from a file
-Texture.prototype.LoadFromFile = function(source) {
+Texture.prototype.LoadFromFile = function(source, types) {
 	this.mImg.mLoaded = ""; // reset our loading status to blank
-	this.mImg.src = source; // attempt to load our image
+	
+	if (types != null) {
+		this.mTypes.splice(0, this.mTypes.length); // remove any stored types
+		this.mTypes = types.split(","); // delimit types at ","
+		
+		for (var i = 0; i < this.mTypes.length; ++i) { // for all types
+			this.mTypes[i] = this.mTypes[i].replace(" ", ""); // remove superfluous spaces from type
+		}
+	}
+	
+	if (this.mTypes.length > 0) { // if there is at least 1 type
+		this.mImg.src = source + "." + this.mTypes[0]; // set the source file of the texture
+		this.mTypes.splice(0, 1); // remove the current type
+	}
+	else {
+		this.mImg.mLoaded = "error"; // otherwise no types were supplied
+	}
 }
 // ...End
 
@@ -1718,14 +1745,11 @@ Font.prototype.CheckLoadStatus = function() {
 // SoundBuffer Class...
 // 
 function SoundBuffer() {
-	this.mAud = new Audio();
-	this.mAud.mLoaded = "";
-	
-	this.mAud.controls = false;
-	this.mAud.loop = false;
+	this.mAud = new Audio(); // the html5 audio element
+	this.mAud.mLoaded = ""; // the audio element's load status
 	
 	// called when the audio successfully loads
-	this.mAud.oncanplay = function() {
+	this.mAud.oncanplaythrough = function() {
 		this.mLoaded = "load";
 	}
 	
@@ -1746,105 +1770,298 @@ SoundBuffer.prototype.Type = function() {
 };
 
 // loads a soundbuffer from a file
-SoundBuffer.prototype.LoadFromFile = function(source) {
-	this.mAud.mLoaded = "";
+SoundBuffer.prototype.LoadFromFile = function(source, types) {
+	this.mAud.mLoaded = ""; // reset the audio object's load status
 	
-	var supportTest = new Audio();
-	if (supportTest.canPlayType("audio/wav") != "") {
-		this.mAud.src = source + ".wav";
+	var arr = types.split(","); // delimit types at ","
+	for (var i = 0; i < arr.length; ++i) { // for all types
+		arr[i] = arr[i].replace(" ", ""); // remove superfluous spaces from type
+		
+		var supportTest = new Audio(); // create a new audio object for testing
+		
+		// if the current type is supported, try and load it
+		if (supportTest.canPlayType && supportTest.canPlayType("audio/" + arr[i]) != "") {
+			this.mAud.src = source + "." + arr[i]; // set the source file of the audio
+			return; // success, exit the function
+		}
 	}
-	else {
-		this.mAud.src = source + ".aac";
+	
+	this.mAud.mLoaded = "error"; // if we reach here, none of the formats were supported
+}
+// ...End
+
+
+// Music Class...
+// a music object is used to play a longer audio file
+function Music() {
+	this.mSndBuffer = null; // the associated sound buffer
+	this.mClone = null; // a copy of the sound buffer element used to allow multiple buffers to play at the same time
+	this.mStatus = "stopped"; // the current playback status of the audio
+	this.mSubStatus = ""; // the current substatus of the audio
+	
+	this.mLoop = false; // should the audio repeat when it is finished playing
+	this.mVolume = 100; // the current volume (0 - 100)
+	this.mCurrentTime = 0; // the current audio playback position in seconds
+	
+	this.mFadeTarget = 100; // 
+	this.mFadeValue = 0;
+	
+	this.mNotifyPlay = false;
+	this.mNotifyFadeEnd = false;
+};
+
+// returns the type of this object for validity checking
+Music.prototype.Type = function() {
+	return "Music";
+}
+
+// make a deep copy of another (other) music object
+Music.prototype.Copy = function(other) {
+	this.Stop(); // stop any currently playing audio
+	
+	this.mSndBuffer = other.mSndBuffer; // copy the sound buffer
+	this.mStatus = "stopped"; // sound should be stopped initially
+	this.mSubStatus = ""; // sound should have no substatus initially
+	
+	// copy the music's current attributes and status
+	this.mLoop = other.mLoop;
+	this.mVolume = other.mVolume;
+	this.mCurrentTime = other.mCurrentTime;
+	
+	// 
+	this.mFadeTarget = other.mFadeTarget;
+	this.mFadeValue = other.mFadeValue;
+	
+	// reset notifications
+	this.mNotifyPlay = false;
+	this.mNotifyFadeEnd = false;
+	
+	if (other.mStatus == "playing" || other.mStatus == "paused") { // if the other music object is playing or paused
+		this.Play();
+		this.Pause();
 	}
+}
+
+// return a deep copy of this music object
+Music.prototype.GetCopy = function() {
+	var m = new Music(); m.Copy(this); // create a new music object and copy this into it
+	return m; // return the new music object
+}
+
+// process the status of the music
+Music.prototype.Process = function() {
+	this.mNotifyPlay = false;
+	this.mNotifyFadeEnd = false;
+	
+	
+	/*
+	 * detect when the audio ends (if not looping) and update object accordingly
+	 */
+	
+	// if audio is playing and we have a valid clone
+	if (this.mStatus == "playing" && this.mClone != null) {
+		this.mCurrentTime = this.mClone.currentTime; // update current playback time
+		
+		if (this.mClone.paused == true && this.mStatus != "paused") { // if audio is stopped but not paused
+			this.mStatus = "stopped"; // audio has finished
+			this.mSubStatus = ""; // reset sub status
+			this.mCurrentTime = 0; // reset current playback time
+			this.mClone = null; // remove clone
+		}
+	}
+	
+	
+	/* 
+	 * can't immediately play when requested, have to ensure audio is valid to play first which
+	 * may take a few frames
+	 */
+	
+	// if we are stopped or paused, and pending play and have a valid clone
+	if ((this.mStatus == "stopped" || this.mStatus == "paused") &&
+			this.mSubStatus == "pending" && this.mClone != null) {
+		
+		if (this.mClone.readyState == 4) { // if audio is fully loaded
+			this.PerformPlay(); // start play
+		}
+	}
+	
+	
+	/*
+	 *
+	 */
+	
+	if (this.mSubStatus == "fading") { // if there is a fade in progress
+		if (this.mVolume < this.mFadeTarget) { // if the voulme is less than the target
+			this.mVolume += this.mFadeValue; // increment the volume
+			if (this.mVolume > this.mFadeTarget) { // if volume is now greater than the target
+				this.mVolume = this.mFadeTarget; // set it to the target
+			}
+		}
+		else if (this.mVolume > this.mFadeTarget) {
+			this.mVolume -= this.mFadeValue;
+			if (this.mVolume < this.mFadeTarget) {
+				this.mVolume = this.mFadeTarget;
+			}
+		}
+		
+		
+		if (this.mVolume != this.mFadeTarget) { // if the volume has not yet reached the target
+			this.mClone.volume = this.mVolume / 100; // set volume
+		}
+		else {
+			this.mSubStatus = ""; // otherwise fade is finished
+			this.mNotifyFadeEnd = true;
+		}
+	}
+}
+
+// sets the buffer (sound source)
+Music.prototype.SetSoundBuffer = function(sndBuff) {
+	this.mSndBuffer = sndBuff; // update the sound buffer
+	this.mClone = null; // remove any previously existing clones
+	this.mStatus = "stopped"; // update the current playback status
+	this.mSubStatus = ""; // reset the substatus
+	
+	this.mCurrentTime = 0; // reset the current time
+}
+
+// starts the audio file from its current position
+Music.prototype.Play = function() {
+	// if audio is stopped or paused and isn't already pending play
+	if ((this.mStatus == "stopped" || this.mStatus == "paused") && this.mSubStatus != "pending") {
+		// if we don't have a valid clone but do have a valid soundbuffer
+		if (this.mClone == null && this.mSndBuffer != null) {
+			this.mClone = (this.mSndBuffer.mAud.cloneNode(true)); // create clone of sound buffer
+		}
+		
+		this.mSubStatus = "pending"; // audio is ready to play
+	}
+}
+
+// performs the actual play functionality -- internal use
+Music.prototype.PerformPlay = function() {
+	if (this.mClone != null) {
+		this.mClone.volume = this.mVolume / 100; // set volume
+		this.mClone.loop = this.mLoop; // set loop status
+		this.mClone.currentTime = this.mCurrentTime; // set current playback time
+		
+		this.mClone.play(); // start playing audio
+		this.mStatus = "playing"; // audio is playing
+		this.mSubStatus = ""; // no longer ready to play
+		
+		this.mNotifyPlay = true;
+	}
+}
+
+// pauses the audio
+Music.prototype.Pause = function() {
+	if (this.mStatus == "playing") {
+		if (this.mClone != null) { // if we have a valid clone
+			this.mClone.pause(); // pause clone
+			
+			this.mStatus = "paused"; // audio is paused
+			
+			if (this.mSubStatus == "fading") { // if audio was fading
+				this.mVolume = this.mFadeTarget; // set the volume to the target
+				
+				this.mSubStatus = ""; // no longer fading
+			}
+		}
+	}
+	
+	if (this.mSubStatus == "pending") { // if audio was pending play
+		this.mSubStatus = ""; // no longer pending play
+	}
+}
+
+// stops the audio
+Music.prototype.Stop = function() {
+	if (this.mStatus == "playing" || this.mStatus == "paused") {
+		if (this.mClone != null) { // if we have a valid clone
+			this.mClone.pause(); // pause clone
+			this.mClone = null; // remove clone
+			
+			this.mCurrentTime = 0; // reset current playback time
+			this.mStatus = "stopped"; // audio is stopped
+			
+			if (this.mSubStatus == "fading") { // if audio was fading
+				this.mVolume = this.mFadeTarget; // set the volume to the target
+				
+				this.mSubStatus = ""; // no longer fading
+			}
+		}
+	}
+	
+	if (this.mSubStatus == "pending") { // if audio was pending play
+		this.mSubStatus = ""; // no longer pending play
+	}
+}
+
+// sets the volume of the audio
+Music.prototype.SetVolume = function(volume) {
+	this.mVolume = volume; // set the volume
+	
+	if (this.mClone != null) { // if we have a valid clone
+		if (this.mStatus == "playing") { // if the audio is already playing
+			this.mClone.volume = this.mVolume / 100; // set the volume of the clone
+		}
+	}
+}
+
+// should the audio loop
+Music.prototype.SetLoop = function(loop) {
+	this.mLoop = loop; // set the loop status
+	
+	if (this.mClone != null) { // if we have a valid clone
+		if (this.mStatus == "playing") { // if the audio is already playing
+			this.mClone.loop = this.mLoop; // set the status of the clone
+		}
+	}
+}
+
+// set the current playback time
+Music.prototype.SetCurrentTime = function(ctime) {
+	this.mCurrentTime = ctime; // set the current time
+	
+	if (this.mClone != null) { // if we have a valid clone
+		if (this.mStatus == "playing") { // if the audio is already playing
+			this.mClone.currentTime = this.mCurrentTime; // update the current time
+		}
+	}
+}
+
+// fades the volume from its current value to a target value by value every frame
+Music.prototype.StartFade = function(target, value) {
+	if (this.mStatus == "playing") { // if the audio is playing
+		this.mFadeTarget = target; // set the fade target volume
+		this.mFadeValue = value; // set the fade change value
+		
+		this.mSubStatus = "fading"; // start fading
+	}
+}
+
+// returns true when the audio starts playing
+Music.prototype.OnPlay = function() {
+	return this.mNotifyPlay; // return play start callback status
+}
+
+// returns true when a fade finishes
+Music.prototype.OnFadeEnd = function() {
+	return this.mNotifyFadeEnd; // return fade end callback status
 }
 // ...End
 
 
 // Sound Class...
+// a music object is used to play a shorter audio file
 function Sound() {
-	this.mSndBuffer = null; // the associated sound buffer (sound element and source)
-	this.mClone = null; // the clone of the sound, a copy of the sound buffer element used to allow multiple sounds to play at the same time
 	
-	this.mStatus = "stopped"; // the current internal status of the sound
-	
-	this.mLoop = false; // should the sound repeat when it is finished playing
-	this.mVolume = 100; // the current volume (0 - 100)
 };
 
 // returns the type of this object for validity checking
 Sound.prototype.Type = function() {
 	return "Sound";
 }
-
-// process the status of the sound
-Sound.prototype.Process = function() {
-	if (this.mClone != null) { // if this sound has a clone (has been started)
-		if (this.mClone.paused == true && this.mStatus != "paused") { // if the sound is stopped but not paused
-			this.mStatus = "stopped"; // the sound has finished
-			this.mClone = null; // remove the clone
-		}
-	}
-}
-
-// sets the buffer (sound source)
-Sound.prototype.SetSoundBuffer = function(sndBuff) {
-	this.mSndBuffer = sndBuff;
-}
-
-// plays the sound
-Sound.prototype.Play = function() {
-	if (this.mStatus == "paused") { // if the sound is paused (was already playing previously)
-		this.mClone.volume = this.mVolume / 100; // reset the volume
-		this.mClone.loop = this.mLoop; // reset the loop status
-		
-		this.mClone.play(); // resume the sound
-	}
-	else {
-		this.mClone = (this.mSndBuffer.mAud.cloneNode(true)); // create a clone of the sound element
-		
-		this.mClone.volume = this.mVolume / 100; // set the volume
-		this.mClone.loop = this.mLoop; // set the loop status
-		
-		this.mClone.play(); // start the sound playing
-		this.mStatus = "playing";
-	}
-}
-
-// stops the sound
-Sound.prototype.Stop = function() {
-	if (this.mStatus == "playing") { // if the sound is playing
-		this.mClone.pause(); // pause the clone
-		this.mClone = null; // remove the clone
-		this.mStatus = "stopped";
-	}
-}
-
-// pauses the sound
-Sound.prototype.Pause = function() {
-	if (this.mStatus == "playing") { // if the sound is playing
-		this.mClone.pause(); // pause the clone
-		this.mStatus = "paused";
-	}
-}
-
-// sets the volume of the sound
-Sound.prototype.SetVolume = function(volume) {
-	this.mVolume = volume; // set the volume
-	
-	if (this.mStatus == "playing") { // if the sound is already playing
-		this.mClone.volume = this.mVolume / 100; // set the volume of the clone
-	}
-}
-
-// should the sound repeat
-Sound.prototype.SetLoop = function(loop) {
-	this.mLoop = loop; // set the loop status
-	
-	if (this.mStatus == "playing") { // if the sound is already playing
-		this.mClone.loop = this.mLoop; // set the status of the clone
-	}
-}
-
 // ...End
 
 
@@ -2647,6 +2864,8 @@ function Text() {
 	this.mWrap = false; // should this text wrap
 	this.mWrapWidth = 0; // the width that the text should wrap within when text wrap is true
 	this.mWrapWordLength = 6; // the minimum word length on which hyphenation can occur (minimum is 6)
+	
+	this.mLines = 0; // 
 };
 
 // inherit the base class's prototype
@@ -2707,6 +2926,8 @@ Text.prototype.Copy = function(other) {
 	this.mWrap = other.mWrap;
 	this.mWrapWidth = other.mWrapWidth;
 	this.mWrapWordLength = other.mWrapWordLength;
+	
+	this.mLines = other.mLines;
 }
 
 // return a deep copy of this text
@@ -2933,7 +3154,7 @@ Text.prototype.CreateTextParts = function() {
 	nmain.game.mCurrContext.font = this.mFontString; // set the current font to this font
 	
 	var txtArr = new Array();
-	var blockArr = this.mString.split("\n"); // split the text at any new line characters 
+	var blockArr = this.mString.split("\n"); // split the text at any new line characters
 	
 	if (this.mWrap == true) { // if text wrap is enabled
 		for (var i = 0; i < blockArr.length; ++i) { // for all current text strings ("\n" delimited)
@@ -3012,6 +3233,11 @@ Text.prototype.CreateTextParts = function() {
 	}
 	else { // otherwise no wrapping
 		txtArr.push(blockArr); // just add the line
+	}
+	
+	this.mLines = 0; // set the number of lines to 0
+	for (var i = 0; i < txtArr.length; ++i) { // for all text blocks
+		this.mLines += txtArr[i].length; // add the length of the block (number of lines) to the line count
 	}
 	
 	var vAlign = 0; // the vertical alignment of each text line (line number)
@@ -4917,7 +5143,7 @@ GUIListBox.prototype.SetUp = function(pos, depth, arrowTex) {
 	this.mDepth = depth;
 	
 	{
-		var tex = nmgrs.resMan.mTexStore.GetResource(arrowTex);
+		var tex = nmgrs.resMan.mTextureStore.GetResource(arrowTex);
 		
 		{
 			this.mTopArrow.SetUp(pos, new Vec2(0, 0), this.mDepth);
@@ -6140,6 +6366,8 @@ InitScene.prototype.Type = function() {
 // initialises the scene object
 InitScene.prototype.SetUp = function() {
 	try {
+		nmgrs.resLoad.QueueSoundBuffer("80smemory", "./res/aud/80smemory", "ogg, mp3, wav");
+		
 		// 
 		nmgrs.resLoad.QueueFont("monaco", "./res/sys/monaco/monaco");
 		
@@ -6149,31 +6377,31 @@ InitScene.prototype.SetUp = function() {
 		nmgrs.resLoad.QueueFont("oldmansans", "./res/sys/OldSansBlack");
 		
 		// card textures
-		nmgrs.resLoad.QueueTexture("cardsLarge", "./res/vis/cards/default/cardsLarge.png");
-		nmgrs.resLoad.QueueTexture("cardsMedium", "./res/vis/cards/default/cardsMedium.png");
-		nmgrs.resLoad.QueueTexture("cardsSmall", "./res/vis/cards/default/cardsSmall.png");
-		nmgrs.resLoad.QueueTexture("cardBackLarge", "./res/vis/cards/default/cardBackLarge.png");
-		nmgrs.resLoad.QueueTexture("cardBackMedium", "./res/vis/cards/default/cardBackMedium.png");
-		nmgrs.resLoad.QueueTexture("cardBackSmall", "./res/vis/cards/default/cardBackSmall.png");
-		nmgrs.resLoad.QueueTexture("cardBundleMedium", "./res/vis/cards/default/cardBundleMedium.png");
-		nmgrs.resLoad.QueueTexture("cardBundleSmall", "./res/vis/cards/default/cardBundleSmall.png");
+		nmgrs.resLoad.QueueTexture("cardsLarge", "./res/vis/cards/default/cardsLarge", "png");
+		nmgrs.resLoad.QueueTexture("cardsMedium", "./res/vis/cards/default/cardsMedium", "png");
+		nmgrs.resLoad.QueueTexture("cardsSmall", "./res/vis/cards/default/cardsSmall", "png");
+		nmgrs.resLoad.QueueTexture("cardBackLarge", "./res/vis/cards/default/cardBackLarge", "png");
+		nmgrs.resLoad.QueueTexture("cardBackMedium", "./res/vis/cards/default/cardBackMedium", "png");
+		nmgrs.resLoad.QueueTexture("cardBackSmall", "./res/vis/cards/default/cardBackSmall", "png");
+		nmgrs.resLoad.QueueTexture("cardBundleMedium", "./res/vis/cards/default/cardBundleMedium", "png");
+		nmgrs.resLoad.QueueTexture("cardBundleSmall", "./res/vis/cards/default/cardBundleSmall", "png");
 		
-		nmgrs.resLoad.QueueTexture("buttonLarge", "./res/vis/ui/buttonLarge.png");
-		nmgrs.resLoad.QueueTexture("buttonSmall", "./res/vis/ui/buttonSmall.png");
-		nmgrs.resLoad.QueueTexture("buttonGraveyardArrow", "./res/vis/ui/buttonGraveyardArrow.png");
+		nmgrs.resLoad.QueueTexture("buttonLarge", "./res/vis/ui/buttonLarge", "png");
+		nmgrs.resLoad.QueueTexture("buttonSmall", "./res/vis/ui/buttonSmall", "png");
+		nmgrs.resLoad.QueueTexture("buttonGraveyardArrow", "./res/vis/ui/buttonGraveyardArrow", "png");
 		
-		nmgrs.resLoad.QueueTexture("logIcons", "./res/vis/ui/logIcons.png");
-		nmgrs.resLoad.QueueTexture("logBack", "./res/vis/ui/logBack.png");
-		nmgrs.resLoad.QueueTexture("logFront", "./res/vis/ui/logFront.png");
+		nmgrs.resLoad.QueueTexture("logIcons", "./res/vis/ui/logIcons", "png");
+		nmgrs.resLoad.QueueTexture("logBack", "./res/vis/ui/logBack", "png");
+		nmgrs.resLoad.QueueTexture("logFront", "./res/vis/ui/logFront", "png");
 		
-		nmgrs.resLoad.QueueTexture("optionsCheck", "./res/vis/ui/optionsCheck.png");
+		nmgrs.resLoad.QueueTexture("optionsCheck", "./res/vis/ui/optionsCheck", "png");
 		
-		nmgrs.resLoad.QueueTexture("statusAVBack", "./res/vis/ui/statusAVBack.png");
-		nmgrs.resLoad.QueueTexture("statusSSBack", "./res/vis/ui/statusSSBack.png");
-		nmgrs.resLoad.QueueTexture("statusIcons", "./res/vis/ui/statusIcons.png");
+		nmgrs.resLoad.QueueTexture("statusAVBack", "./res/vis/ui/statusAVBack", "png");
+		nmgrs.resLoad.QueueTexture("statusSSBack", "./res/vis/ui/statusSSBack", "png");
+		nmgrs.resLoad.QueueTexture("statusIcons", "./res/vis/ui/statusIcons", "png");
 		
-		nmgrs.resLoad.QueueTexture("menuLogo", "./res/vis/menuLogo.png");
-		nmgrs.resLoad.QueueTexture("gameBack", "./res/vis/back.png");
+		nmgrs.resLoad.QueueTexture("menuLogo", "./res/vis/menuLogo", "png");
+		nmgrs.resLoad.QueueTexture("gameBack", "./res/vis/back", "png");
 		
 		nmgrs.resLoad.AcquireResources();
 		nmgrs.resLoad.mIntervalID = setInterval(function() {nmgrs.resLoad.ProgressCheck();}, 0);
@@ -6629,7 +6857,7 @@ OogaahMenuScene.prototype.SetUp = function() {
 	
 	this.mMenuControl.SetUp();
 	
-	var tex = nmgrs.resMan.mTexStore.GetResource("menuLogo");
+	var tex = nmgrs.resMan.mTextureStore.GetResource("menuLogo");
 	this.mLogo.SetTexture(tex);
 	this.mLogo.SetPosition(new Vec2(10, 10));
 }
@@ -6671,34 +6899,72 @@ OogaahMenuScene.prototype.Render = function() {
 
 
 // OogaahMenuOption Class...
-// 
+// an interactable option in the main menu
 function OogaahMenuOption() {
-	this.mBack = new Shape();
-	this.mText = new RenderCanvas();
+	this.mBack = new Shape(); // the option's back shape (and interactable mask)
+	this.mText = new RenderCanvas(); // the option's text (a render canvas with text rendered to it for cleaner scaling)
+	
+	this.mString = ""; // the current string
+	this.mShow = true; // should the option be visible
+	
+	this.mHighlighted = false; // is the option currently highlighted
+	
+	this.mAnimatedStatus = false; // has this option fully animated
 };
 
+// sets the state of the option
+OogaahMenuOption.prototype.SetState = function(renderstyle, string, visibility) {
+	this.mBack.mRenderStyle = renderstyle; // set the render style (and by consequence, the active state)
+	this.SetString(string); // set the string
+	this.mShow = visibility; // set the visibility
+}
+
+// sets the highlight state of the option
+OogaahMenuOption.prototype.SetHighlight = function(highlighted) {
+	if (this.mHighlighted != highlighted) { // if supplied state is different from current
+		if (highlighted == true) { // if we are to highlight the option
+			this.mBack.mAlpha = 1; // set the alpha to fully opaque
+			this.mText.SetScale(new Vec2(1.2, 1.0)); // set the scale of the text
+		}
+		else { // otherwise we are to unhighlight it
+			this.mBack.mAlpha = 0.5; // set the alpha
+			this.mText.SetScale(new Vec2(1.0, 1.0)); // set the text scale to normal
+		}
+		
+		this.mHighlighted = highlighted; // update the highlight state
+	}
+}
+
+// sets the string of the menu option
 OogaahMenuOption.prototype.SetString = function(string) {
-	this.mText.Clear();
-	
-	var fnt = nmgrs.resMan.mFontStore.GetResource("kingthings");
-	var txt = new Text();
-	txt.SetFont(fnt);
-	txt.SetFontSize(28);
-	txt.mAlign = "right";
-	txt.mColour = "#35251C";
-	txt.SetPosition(new Vec2(320, 0));
-	
-	txt.SetString(string);
-	
-	var arr = new Array(txt);
-	this.mText.RenderTo(arr);
+	if (string != null) {
+		if (this.mString != string) {
+			this.mText.Clear(); // clear the current text
+			
+			// setup the text object
+			var fnt = nmgrs.resMan.mFontStore.GetResource("kingthings");
+			var txt = new Text();
+			txt.SetFont(fnt);
+			txt.SetFontSize(28);
+			txt.mAlign = "right";
+			txt.mColour = "#35251C";
+			txt.SetPosition(new Vec2(320, 0));
+			
+			txt.SetString(string); // set the string of the text object
+			
+			var arr = new Array(txt); // add it to an array
+			this.mText.RenderTo(arr); // render it to the canvas
+			this.mString = string; // update the current string
+		}
+	}
 }
 // ...End
 
 
 // OogaahMenuControl Class...
-// 
+// handles the main menu logic and rendering
 function OogaahMenuControl() {
+	// menu options, top to bottom
 	this.mMenuOptions = new Array();
 	this.mMenuOptions[0] = new OogaahMenuOption();
 	this.mMenuOptions[1] = new OogaahMenuOption();
@@ -6706,258 +6972,523 @@ function OogaahMenuControl() {
 	this.mMenuOptions[3] = new OogaahMenuOption();
 	this.mMenuOptions[4] = new OogaahMenuOption();
 	
-	this.mCurrentOption = -1;
-	this.mOptionsAnimState = "out";
-	this.mMode = 0;
-	this.mSetup = true;
+	this.mCurrentOption = -1; // the current highlighted option id (-1 is none)
+	this.mMode = "mainMenu"; // the current menu mode
+	this.mSubMode = "none"; // and the current submode
+	
+	this.mOptionsAnimState = "out"; // the current state of the menu (in terms of animation)
+	this.mAnimatedCount = 0; // the count of options fully animated
+	
+	this.mCardOptionControl = new OogaahCardOptionControl();
 };
 
+// set up the menu control
 OogaahMenuControl.prototype.SetUp = function() {
-	{
-		var yOff = 420;
+	{ // position the options back shape
+		var yOff = 420; // the initial y-offset
 		
-		for (var i = 0; i < this.mMenuOptions.length; ++i) {
-			this.mMenuOptions[i].mBack.MakeRectangle(new Vec2(-80, yOff), new Vec2(80, 32));
-			this.mMenuOptions[i].mBack.SetSkew(new Vec2(15, 0));
-			this.mMenuOptions[i].mBack.mColour = "#FAF1CE";
-			this.mMenuOptions[i].mBack.mAlpha = 0.5;
+		for (var i = 0; i < this.mMenuOptions.length; ++i) { // for all options
+			var shape = this.mMenuOptions[i].mBack; // reference to option's shape
 			
-			yOff += 40;
+			// make a 'fully animated' shape to set its collision mask
+			shape.MakeRectangle(new Vec2(-80, yOff), new Vec2(nmain.game.mCanvasSize.mX + 160, 32));
+			shape.SetMask();
+			
+			// make a rectangle shape and set its attributes
+			shape.MakeRectangle(new Vec2(-80, yOff), new Vec2(80, 32));
+			shape.SetSkew(new Vec2(15, 0));
+			shape.mColour = "#FAF1CE";
+			shape.mAlpha = 0.5;
+			
+			yOff += 40; // increment the y-offset
 		}
 	}
 	
-	{	
-		var yOff = 234;
-		for (var i = 0; i < this.mMenuOptions.length; ++i) {
+	{ // position the options text
+		var yOff = 234; // the initial y-offset
+		
+		for (var i = 0; i < this.mMenuOptions.length; ++i) { // for all options
+			// set the render canvas attributes
 			this.mMenuOptions[i].mText.SetSize(new Vec2(320, 36));
-			
 			this.mMenuOptions[i].mText.SetPosition(new Vec2(nmain.game.mCanvasSize.mX - 40, yOff));
 			this.mMenuOptions[i].mText.SetOrigin(new Vec2(320, 0));
 			this.mMenuOptions[i].mText.SetSkew(new Vec2(15, 0));
 			
-			this.mMenuOptions[i].mText.mAlpha = 0.0;
+			this.mMenuOptions[i].mText.mAlpha = 0.0; // intially canvas is invisible
 			
-			yOff += 40;
+			yOff += 40; // increment the y-offset
 		}
-		
-		this.mMenuOptions[0].SetString("Play a Game");
-		this.mMenuOptions[1].SetString("Learn to Play");
-		this.mMenuOptions[2].SetString("-");// Set Options");
-		this.mMenuOptions[3].SetString("");
-		this.mMenuOptions[4].SetString("");
 	}
 	
-	this.mMenuOptions[3].mBack.mRenderStyle = "LineLoop";
-	this.mMenuOptions[4].mBack.mRenderStyle = "LineLoop";
-	this.mOptionsAnimState = "animIn";
+	this.mOptionsAnimState = "out"; // set initial animation state to 'out' (fully unloaded)
+	
+	this.mCardOptionControl.SetUp();
 }
 
 // handles user input
 OogaahMenuControl.prototype.Input = function() {
-	if (nmgrs.inputMan.GetKeyboardPressed(nkeyboard.key.code.Q) == true) {
-		if (this.mOptionsAnimState == "out") {
-			this.mOptionsAnimState = "animIn";
-		}
-	}
-	
-	if (nmgrs.inputMan.GetMousePressed(nmouse.button.code.left) == true) {
-		switch (this.mCurrentOption) {
-			case 0 :
-				if (this.mMode == 0) {
-					nmgrs.sceneMan.RequestSceneChange(new OogaahGameScene());
+	if (nmgrs.inputMan.GetMousePressed(nmouse.button.code.left) == true) { // if the left mouse button is clicked
+		switch (this.mCurrentOption) { // depending on the current highlight option
+			case 0 : // option 0 (top)
+				if (this.mMode == "mainMenu") { // if we are in "main menu"
+					this.mMode = "gameStart"; // go to "game start"
+					this.mOptionsAnimState = "animOut";
 				}
-				else if (this.mMode == 2) {
-					// nmgrs.sceneMan.RequestSceneChange(new OogaahTutorialScene());
+				else if (this.mMode == "selectTutorial") { // if we are in "select tutorial"
+					this.mSubMode = "basicRules"; // go to "basic rules" submode
+					this.mOptionsAnimState = "animOut";
 				}
 				
 				break;
 			case 1 :
-				if (this.mMode == 0) {
-					this.mMode = 2;
-					this.mSetup = false;
+				if (this.mMode == "mainMenu") { // if we are in "main menu"
+					this.mMode = "selectTutorial"; // go to "select tutorial"
 					this.mOptionsAnimState = "animOut";
 				}
-				else if (this.mMode == 2) {
-					// nmgrs.sceneMan.RequestSceneChange(new OogaahTutorialScene());
+				else if (this.mMode == "selectTutorial") { // if we are in "select tutorial"
+					this.mSubMode = "screenLayout"; // go to "screen layout" submode
+					this.mOptionsAnimState = "animOut";
 				}
 				
 				break;
 			case 2 :
-				if (this.mMode == 0) {
-					// nmgrs.sceneMan.RequestSceneChange(new OogaahOptionsScene());
-				}
-				else if (this.mMode == 2) {
-					// nmgrs.sceneMan.RequestSceneChange(new OogaahTutorialScene());
-				}
-				
-				break;
-			case 3 :
-				if (this.mMode == 2) {
-					nmgrs.sceneMan.RequestSceneChange(new OogaahTutorialScene());
-				}
-				
-				break;
-			case 4 :
-				if (this.mMode == 2) {
-					this.mMode = 0;
-					this.mSetup = false;
+				if (this.mMode == "selectTutorial") { // if we are in "select tutorial"
+					this.mSubMode = "selectCard"; // go to "select card" submode
 					this.mOptionsAnimState = "animOut";
 				}
 				
 				break;
+			case 3 :
+				if (this.mMode == "selectTutorial") { // if we are in "select tutorial"
+					this.mSubMode = "exampleHand"; // go to "example hand" submode
+					this.mOptionsAnimState = "animOut";
+				}
+				
+				break;
+			case 4 : // option 4 (bottom)
+				if (this.mMode == "selectTutorial") { // if we are in "select tutorial"
+					if (this.mSubMode == "none") { // if we aren't in a submode
+						this.mMode = "mainMenu"; // return to "main menu"
+						this.mOptionsAnimState = "animOut";
+					}
+					else if (this.mSubMode == "selectCard") { // otherwise if we are in "select card" submode
+						this.mCardOptionControl.mCurrentCard = 0;
+						this.mCardOptionControl.Update();
+						
+						this.mSubMode = "none"; // reset to no submode
+						this.mOptionsAnimState = "animOut";
+					}
+				}
+				
+				break;
 		}
+	}
+	
+	// process the card option ui and if it returns a value greater than -1
+	if (this.mCardOptionControl.Input() > -1) {
+		this.mSubMode = "cardSelected"; // go to "card selected" submode
+		this.mOptionsAnimState = "animOut";
 	}
 }
 
 // handles game logic
 OogaahMenuControl.prototype.Process = function() {
-	this.mCurrentOption = -1;
+	this.mCurrentOption = -1; // reset the current option
 	
 	if (this.mOptionsAnimState == "in") { // if menu has fully loaded
-		var found = false;
-		
-		for (var i = 0; i < this.mMenuOptions.length; ++i) {
-			this.mMenuOptions[i].mBack.mAlpha = 0.5;
-			this.mMenuOptions[i].mText.SetScale(new Vec2(1.0, 1.0));
+		for (var i = 0; i < this.mMenuOptions.length; ++i) { // for all options
+			var state = false; // the highlight state of the option (false initially - not highlighted)
 			
-			if (this.mMenuOptions[i].mBack.mRenderStyle == "Fill") {
-				var p = new Vec2(); p.Copy(nmgrs.inputMan.GetLocalMouseCoords());
-				var polygon = this.mMenuOptions[i].mBack.mGlobalMask.GetAbsolute();
-				
-				if (util.PointInConvex(p, polygon) == true && found == false &&
-						nmgrs.inputMan.GetMouseInCanvas() == true) {
+			if (this.mCurrentOption == -1) { // if we're not highlighting anything else
+				// if the render style is filled (i.e., selectable) and the mouse is inside the canvas
+				if (this.mMenuOptions[i].mBack.mRenderStyle == "Fill" && nmgrs.inputMan.GetMouseInCanvas() == true) {
+					var p = new Vec2(); p.Copy(nmgrs.inputMan.GetLocalMouseCoords()); // get mouse position
+					var polygon = this.mMenuOptions[i].mBack.mGlobalMask.GetAbsolute(); // get mask of option box
 					
-					this.mCurrentOption = i;
-					this.mMenuOptions[i].mBack.mAlpha = 1;
-					this.mMenuOptions[i].mText.SetScale(new Vec2(1.2, 1.0));
-					found = true;
+					// if the mouse is inside the mask
+					if (util.PointInConvex(p, polygon) == true ) {
+						this.mCurrentOption = i; // set the current option
+						state = true; // the option is highlighted
+					}
 				}
 			}
+			
+			this.mMenuOptions[i].SetHighlight(state); // set the highlighted state of the option
+		}
+		
+		if (this.mMode == "selectTutorial" && this.mSubMode == "selectCard") {
+			this.mCardOptionControl.Process();
 		}
 	}
-	else if (this.mOptionsAnimState == "out") { // 
-		if (this.mSetup == false) {
-			switch (this.mMode) {
-				case 0 :
-					this.mMenuOptions[3].mBack.mRenderStyle = "LineLoop";
-					this.mMenuOptions[4].mBack.mRenderStyle = "LineLoop";
-					
-					this.mMenuOptions[0].SetString("Play a Game");
-					this.mMenuOptions[1].SetString("Learn to Play");
-					this.mMenuOptions[2].SetString("-");// Set Options");
-					this.mMenuOptions[3].SetString("");
-					this.mMenuOptions[4].SetString("");
-					
-					this.mSetup = true;
-					this.mOptionsAnimState = "animIn";
-					break;
-				case 2 :
-					this.mMenuOptions[3].mBack.mRenderStyle = "Fill";
-					this.mMenuOptions[4].mBack.mRenderStyle = "Fill";
-					
-					this.mMenuOptions[0].SetString("-");// Learn the Basic Game Rules");
-					this.mMenuOptions[1].SetString("-");// Learn the Screen Layout");
-					this.mMenuOptions[2].SetString("-");// Learn the Card Abilities");
-					this.mMenuOptions[3].SetString("Play an Example Round");
-					this.mMenuOptions[4].SetString("Go Back");
-					
-					this.mSetup = true;
-					this.mOptionsAnimState = "animIn";
-					break;
-			}
-		}
+	else if (this.mOptionsAnimState == "out") { // otherwise if menu has fully unloaded
+		this.SwitchModes(); // switch modes
 	}
 	else { // otherwise we're still loading menu
-		if (this.mOptionsAnimState == "animIn") {
-			for (var i = 0; i < this.mMenuOptions.length; ++i) {
-				// if the first menu option back shape has not yet fully animated
-				if (this.mMenuOptions[i].mBack.mPoints[0].mX < nmain.game.mCanvasSize.mX + 160) {
-					var animate = false; // should we animate
-					if (i > 0) { // if we are not on the first element
-						// if the previous element has breached a certain point
-						if (this.mMenuOptions[i - 1].mBack.mPoints[0].mX > 144) {
-							animate = true; // we should animated
-						}
-					}
-					
-					if (i == 0 || animate == true) { // if we are on the first element or should animate
-						var shp = this.mMenuOptions[i].mBack; // reference the back shape
-						shp.MakeRectangle(shp.mPos, new Vec2(shp.mSize.mX + 16, shp.mSize.mY)); // increase the length of the shape
-					}
-				}
-				else { // otherwise it has fully loaded
-					if (this.mMenuOptions[i].mText.mAlpha < 1.0) { // if the text is not yet fully opaque
-						this.mMenuOptions[i].mText.mAlpha += 0.1; // increase the alpha value
-					}
-					else { // otherwise text is fully opaque
-						this.mMenuOptions[i].mBack.SetMask(); // so set the collision mask (for user interaction)
-						
-						if (i == this.mMenuOptions.length - 1) { // if this was the last option
-							this.mOptionsAnimState = "in"; // once last shape is fully loaded, we are done
-						}
-					}
-				}
-			}
-		}
-		else if (this.mOptionsAnimState == "animOut") {
-			for (var i = this.mMenuOptions.length - 1; i >= 0; --i) {
-				if (this.mMenuOptions[i].mText.mAlpha > 0.0) { // if the text is not yet fully transparent
-					var animate = false; // should we animate
-					if (i < this.mMenuOptions.length - 1) { // if we are not on the last element
-						// if the next element has breached a certain alpha value
-						if (this.mMenuOptions[i + 1].mText.mAlpha == 0.0) {
-							animate = true; // we should animated
-						}
-					}
-					
-					if (i == this.mMenuOptions.length - 1 || animate == true) {
-						this.mMenuOptions[i].mText.mAlpha -= 0.2; // decrease the alpha value
-						if (this.mMenuOptions[i].mText.mAlpha < 0.0) {
-							this.mMenuOptions[i].mText.mAlpha = 0.0;
-						}
-					}
-				}
-				else { // otherwise text is fully transparent
-					if (this.mMenuOptions[i].mBack.mPoints[0].mX > 80) {
-						var shp = this.mMenuOptions[i].mBack; // reference the back shape
-						shp.MakeRectangle(shp.mPos, new Vec2(shp.mSize.mX - 16, shp.mSize.mY)); // increase the length of the shape
-					}
-					else { // otherwise 
-						this.mMenuOptions[i].mBack.SetMask(); // so set the collision mask (for user interaction)
-						this.mMenuOptions[i].mBack.mAlpha = 0.5;
-						this.mMenuOptions[i].mText.SetScale(new Vec2(1.0, 1.0));
-						
-						if (i == 0) { // if this was the first option
-							this.mOptionsAnimState = "out"; // once last shape is fully loaded, we are done
-						}
-					}
-				}
-			}
-		}
+		this.AnimateMenu(); // animate the menu
 	}
 }
 
-//
+// renders the menu
 OogaahMenuControl.prototype.GetRenderData = function() {
-	var arr = new Array();
+	var arr = new Array(); // an array of renderables relating to the menu
 	
-	for (var i = 0; i < this.mMenuOptions.length; ++i) {
-		arr.push(this.mMenuOptions[i].mBack);
-		
-		if (this.mMenuOptions[i].mBack.mRenderStyle == "Fill") {
-			arr.push(this.mMenuOptions[i].mText);
+	for (var i = 0; i < this.mMenuOptions.length; ++i) { // for all options
+		if (this.mMenuOptions[i].mShow == true) { // if the option is visible
+			arr.push(this.mMenuOptions[i].mBack); // add its back shape
+			
+			if (this.mMenuOptions[i].mBack.mRenderStyle == "Fill") { // if the option is interactable
+				arr.push(this.mMenuOptions[i].mText); // return its text render canvas
+			}
 		}
 	}
 	
-	return arr;
+	// if we are in select tutorial mode, select card sub mode and menu animation state is 'in'
+	if (this.mMode == "selectTutorial" && this.mSubMode == "selectCard" && this.mOptionsAnimState == "in") {
+		arr = util.ConcatArray(arr, this.mCardOptionControl.GetRenderData()); // add the card option ui
+	}
+	
+	return arr; // return the menu renderables
 }
 
-// options in
-// options out
-// set option text and function (onclick)
+// switches modes after the menu has fully unloaded (is not visible)
+OogaahMenuControl.prototype.SwitchModes = function() {
+	switch (this.mMode) { // depending on the current mode
+		case "mainMenu" : // main menu mode - the default state
+			this.mMenuOptions[0].SetState("Fill", "Play a Game", true);
+			this.mMenuOptions[1].SetState("Fill", "Learn to Play", true);
+			this.mMenuOptions[2].SetState("Fill", "-", true); // Set Options
+			this.mMenuOptions[3].SetState("LineLoop", "", true);
+			this.mMenuOptions[4].SetState("LineLoop", "", true);
+			
+			this.mOptionsAnimState = "animIn"; // set the animation state
+			break;
+		case "gameStart" :
+			nmgrs.sceneMan.RequestSceneChange(new OogaahGameScene());
+			
+			break;
+		case "selectTutorial" :
+			if (this.mSubMode == "none") {
+				this.mMenuOptions[0].SetState("Fill", "Learn the Basic Game Rules", true);
+				this.mMenuOptions[1].SetState("Fill", "Learn the Screen Layout", true);
+				this.mMenuOptions[2].SetState("Fill", "Learn the Card Abilities", true);
+				this.mMenuOptions[3].SetState("Fill", "Play an Example Round", true);
+				this.mMenuOptions[4].SetState("Fill", "Back", true);
+				
+				this.mOptionsAnimState = "animIn";
+			}
+			else if (this.mSubMode == "basicRules") { // if we are in "basic rules" sub mode
+				nmgrs.sceneMan.RequestSceneChange(new OogaahTutorialScene());
+				nmgrs.sceneMan.mReadyScene.mTutorialContent = new OogaahTutorialContent1();
+			}
+			else if (this.mSubMode == "screenLayout") { // if we are in "screen layout" sub mode
+				nmgrs.sceneMan.RequestSceneChange(new OogaahTutorialScene());
+				nmgrs.sceneMan.mReadyScene.mTutorialContent = new OogaahTutorialContent2();
+			}
+			else if (this.mSubMode == "selectCard") { // if we are in "select card" sub mode
+				this.mMenuOptions[0].SetState("LineLoop", null, false);
+				this.mMenuOptions[1].SetState("LineLoop", null, false);
+				this.mMenuOptions[2].SetState("LineLoop", null, false);
+				this.mMenuOptions[3].SetState("LineLoop", null, false);
+				this.mMenuOptions[4].SetState("Fill", "Back", true);
+				
+				this.mOptionsAnimState = "animIn";
+			}
+			else if (this.mSubMode == "cardSelected") { // if we are in "card selected" sub mode
+				nmgrs.sceneMan.RequestSceneChange(new OogaahTutorialScene());
+				nmgrs.sceneMan.mReadyScene.mTutorialContent = this.mCardOptionControl.mContent;
+			}
+			else if (this.mSubMode == "exampleHand") { // if we are in "example hand" sub mode
+				nmgrs.sceneMan.RequestSceneChange(new OogaahTutorialScene());
+				nmgrs.sceneMan.mReadyScene.mTutorialContent = new OogaahTutorialContent4();
+			}
+			
+			break;
+	}
+}
 
+// controls all logic related to animating the menu in and out
+OogaahMenuControl.prototype.AnimateMenu = function() {
+	if (this.mOptionsAnimState == "animIn") { // if menu is animating in
+		for (var i = 0; i < this.mMenuOptions.length; ++i) { // for all options
+			var option = this.mMenuOptions[i]; // reference to the current option
+			var shape = option.mBack; // reference to the current option's shape
+			var text = option.mText; // reference to the current option's text
+			
+			if (option.mAnimatedStatus != true) { // if the option hasn't yet fully animated
+				if (option.mShow == false) { // if the option is not visible
+					// immediately fully animate the option
+					shape.MakeRectangle(shape.mPos, new Vec2(nmain.game.mCanvasSize.mX + 160, shape.mSize.mY));
+					text.mAlpha = 1.0;
+				}
+				
+				if (shape.mPoints[0].mX < nmain.game.mCanvasSize.mX + 160) { // if the shape hasn't finished animating
+					var animate = false; // assume animation hasn't started yet
+					if (i > 0) { // if this isn't the first option
+						// if the previous option's animation has reached a certain point
+						if (this.mMenuOptions[i - 1].mBack.mPoints[0].mX > 144) {
+							animate = true; // begin animation
+						}
+					}
+					
+					if (i == 0 || animate == true) { // if this is the first option or animation is to begin
+						shape.MakeRectangle(shape.mPos, new Vec2(shape.mSize.mX + 16, shape.mSize.mY)); // animate shape
+					}
+				}
+				else if (text.mAlpha < 1.0) { // otherwise if the text hasn't finished animating
+					text.mAlpha += 0.1; // animate text
+				}
+				else { // otherwise if animation is done
+					option.mAnimatedStatus = true; // option has finished animating
+					++this.mAnimatedCount; // increase finished count
+					
+					if (this.mAnimatedCount == this.mMenuOptions.length) { // if all options have finished
+						this.mOptionsAnimState = "in"; // update menu's animation state
+						
+						this.AnimateMenuResetStatus(); // reset all options' animation status
+						break; // stop processing
+					}
+				}
+			}
+		}
+	}
+	else if (this.mOptionsAnimState == "animOut") { // otherwise if menu is animating in
+		for (var i = this.mMenuOptions.length - 1; i >= 0; --i) { // for all options
+			var option = this.mMenuOptions[i]; // reference to the current option
+			var shape = option.mBack; // reference to the current option's shape
+			var text = option.mText; // reference to the current option's text
+			
+			if (option.mAnimatedStatus != true) { // if the option hasn't yet fully animated
+				if (option.mShow == false) { // if the option is not visible
+					// immediately fully animate the option
+					this.mMenuOptions[i].mText.mAlpha = 0.0;
+					shape.MakeRectangle(shape.mPos, new Vec2(80, shape.mSize.mY));
+				}
+				
+				if (text.mAlpha > 0.0) { // if the text hasn't finished animating
+					var animate = false; // assume animation hasn't started yet
+					if (i < this.mMenuOptions.length - 1) { // if this isn't the first option
+						// if the previous option's animation has reached a certain point
+						if (this.mMenuOptions[i + 1].mText.mAlpha == 0.0) {
+							animate = true; // begin animation
+						}
+					}
+					
+					// if this is the first option or animation is to begin
+					if (i == this.mMenuOptions.length - 1 || animate == true) {
+						text.mAlpha -= 0.2; // animate text
+						
+						if (text.mAlpha < 0.0) { // if alpha is below 0
+							text.mAlpha = 0.0; // reset it to 0
+						}
+					}
+				}
+				else if (shape.mPoints[0].mX > 80) { // otherwise if the shape hasn't finished animating
+					shape.MakeRectangle(shape.mPos, new Vec2(shape.mSize.mX - 16, shape.mSize.mY)); // animate shape
+				}
+				else {
+					option.SetHighlight(false); // make sure option isn't highlighted
+					
+					option.mAnimatedStatus = true; // option has finished animating
+					++this.mAnimatedCount; // increase finished count
+					
+					if (this.mAnimatedCount == this.mMenuOptions.length) { // if all options have finished
+						this.mOptionsAnimState = "out"; // update menu's animation state
+						
+						this.AnimateMenuResetStatus(); // reset all options' animation status
+						break; // stop processing
+					}
+				}
+			}
+		}
+	}
+}
+
+// resets the animated status of all options
+OogaahMenuControl.prototype.AnimateMenuResetStatus = function() {
+	for (var i = 0; i < this.mMenuOptions.length; ++i) { // for all options
+		this.mMenuOptions[i].mAnimatedStatus = false; // reset animated status
+	}
+	
+	this.mAnimatedCount = 0; // reset animated count
+}
 // ...End
 
+
+// OogaahCardOptionControl Class...
+// ui for selecting a specific card tutorial
+function OogaahCardOptionControl() {
+	this.mCardSprites = new Array(); // array of visible card sprites
+	
+	this.mCurrentOption = -1; // the current highlighted sprite
+	this.mCurrentCard = 0; // the current card id (left-most)
+	
+	// arrow buttons to control the current card id
+	this.mLeftArrow = new GUIButton();
+	this.mRightArrow = new GUIButton();
+	
+	this.mContent = null; // the tutorial content that we'll run when a card is clicked
+};
+
+// sets up the ui
+OogaahCardOptionControl.prototype.SetUp = function() {
+	var texCards = nmgrs.resMan.mTextureStore.GetResource("cardsMedium"); // card texture
+	var xPos = 110; // initial card sprite x-position
+	
+	for (var i = 0; i < 3; ++i) {
+		// set up a card sprite and add it to the array
+		var sprCard = new Sprite();
+		sprCard.SetTexture(texCards, 13, 5, -1, -1);
+		sprCard.SetCurrentFrame(i);
+		sprCard.SetPosition(new Vec2(xPos, 212));
+		sprCard.SetMask();
+		sprCard.mAlpha = 0.5;
+		this.mCardSprites.push(sprCard);
+		
+		xPos += 150; // increment the x-position
+	}
+	
+	{ // set up the arrow buttons
+		var arrowTex = nmgrs.resMan.mTextureStore.GetResource("buttonGraveyardArrow");
+		this.mLeftArrow.SetUp(new Vec2(34, 320), new Vec2(25, 50), -51);
+		this.mLeftArrow.mSpriteIdle.SetTexture(arrowTex, 8, 2, -1, -1); this.mLeftArrow.mSpriteIdle.SetCurrentFrame(0);
+		this.mLeftArrow.mSpriteHover.SetTexture(arrowTex, 8, 2, -1, -1); this.mLeftArrow.mSpriteHover.SetCurrentFrame(2);
+		this.mLeftArrow.mSpriteDown.SetTexture(arrowTex, 8, 2, -1, -1); this.mLeftArrow.mSpriteDown.SetCurrentFrame(4);
+		this.mLeftArrow.mSpriteInactive.SetTexture(arrowTex, 8, 2, -1, -1); this.mLeftArrow.mSpriteInactive.SetCurrentFrame(6);
+		
+		this.mRightArrow.SetUp(new Vec2(nmain.game.mCanvasSize.mX - 60, 320), new Vec2(25, 50), -51);
+		this.mRightArrow.mSpriteIdle.SetTexture(arrowTex, 8, 2, -1, -1); this.mRightArrow.mSpriteIdle.SetCurrentFrame(1);
+		this.mRightArrow.mSpriteHover.SetTexture(arrowTex, 8, 2, -1, -1); this.mRightArrow.mSpriteHover.SetCurrentFrame(3);
+		this.mRightArrow.mSpriteDown.SetTexture(arrowTex, 8, 2, -1, -1); this.mRightArrow.mSpriteDown.SetCurrentFrame(5);
+		this.mRightArrow.mSpriteInactive.SetTexture(arrowTex, 8, 2, -1, -1); this.mRightArrow.mSpriteInactive.SetCurrentFrame(7);
+	}
+}
+
+// user ui input
+OogaahCardOptionControl.prototype.Input = function() {
+	// handle arrow button input
+	this.mLeftArrow.Input();
+	this.mRightArrow.Input();
+	
+	if (nmgrs.inputMan.GetMousePressed(nmouse.button.code.left) == true) { // if the left mouse button is clicked
+		if (this.mCurrentOption > -1) { // if a card sprite is highlighted
+			this.SetContent(); // set the related tutorial content
+			return 0; // return 0 (clicked)
+		}
+	}
+	
+	return -1; // return -1 (not clicked)
+}
+
+// process ui
+OogaahCardOptionControl.prototype.Process = function() {
+	this.mCurrentOption = -1; // reset the current highlighted card sprite
+	
+	// process arrow buttons
+	this.mLeftArrow.Process(null);
+	this.mRightArrow.Process(null);
+	
+	if (this.mCurrentCard > 0) { // if the current card id is greater than 0
+		if (this.mLeftArrow.OnClick()) { // if the left arrow is clicked
+			this.mCurrentCard--; // decrement the current card id
+			this.Update(); // update the displayed card sprites
+		}
+	}
+	
+	if (this.mCurrentCard < 13 - 3) { // if the current card id is less than number of cards minus 3
+		if (this.mRightArrow.OnClick()) { // if the right arrow is clicked
+			this.mCurrentCard++; // increment the current card id
+			this.Update(); // update the displayed card sprites
+		}
+	}
+	
+	for (var i = 0; i < this.mCardSprites.length; ++i) { // for all card sprites
+		this.mCardSprites[i].mAlpha = 0.5; // set the alpha
+		
+		if (this.mCurrentOption == -1) { // if we're not highlighting anything else
+			var p = new Vec2(); p.Copy(nmgrs.inputMan.GetLocalMouseCoords()); // get mouse position
+			var polygon = this.mCardSprites[i].mGlobalMask.GetAbsolute(); // get mask of card sprite
+			
+			if (util.PointInConvex(p, polygon) == true ) { // if the mouse is inside the mask
+				this.mCurrentOption = i; // set the current option
+				this.mCardSprites[i].mAlpha = 1.0; // set the alpha
+			}
+		}
+	}
+}
+
+// returns the ui's renderables
+OogaahCardOptionControl.prototype.GetRenderData = function() {
+	var arr = new Array(); // an array of renderables relating to the card options
+	
+	if (this.mCurrentCard > 0) { // if the current card is 1 or more
+		arr = util.ConcatArray(arr, this.mLeftArrow.GetRenderData()); // add left arrow
+	}
+	
+	if (this.mCurrentCard < 13 - 3) { // if the current card is less than max cards minus 3
+		arr = util.ConcatArray(arr, this.mRightArrow.GetRenderData()); // add right arrow
+	}
+	
+	for (var i = 0; i < this.mCardSprites.length; ++i) { // for all card sprites
+		arr.push(this.mCardSprites[i]); // add to the array
+	}
+	
+	return arr; // return the card option renderables
+}
+
+// updates the displayed card sprites
+OogaahCardOptionControl.prototype.Update = function() {
+	for (var i = 0; i < this.mCardSprites.length; ++i) { // for all card sprites
+		// update the current frame depending on the current card id
+		this.mCardSprites[i].SetCurrentFrame(this.mCurrentCard + i);
+	}
+}
+
+// set's the tutorial content depending on the selected card
+OogaahCardOptionControl.prototype.SetContent = function() {
+	// depending on the card sprite selected and the current card id
+	switch (this.mCurrentOption + this.mCurrentCard) {
+		case 0 : // if the card was a goblin horde
+			this.mContent = new OogaahTutorialContent31(); // set to the goblin horde tutorial
+			break;
+		case 1 :
+			this.mContent = new OogaahTutorialContent32();
+			break;
+		case 2 :
+			this.mContent = new OogaahTutorialContent33();
+			break;
+		case 3 :
+			this.mContent = new OogaahTutorialContent34();
+			break;
+		case 4 :
+			this.mContent = new OogaahTutorialContent35();
+			break;
+		case 5 :
+			this.mContent = new OogaahTutorialContent36();
+			break;
+		case 6 :
+			this.mContent = new OogaahTutorialContent37();
+			break;
+		case 7 :
+			this.mContent = new OogaahTutorialContent38();
+			break;
+		case 8 :
+			this.mContent = new OogaahTutorialContent39();
+			break;
+		case 9 :
+			this.mContent = new OogaahTutorialContent3C();
+			break;
+		case 10 :
+			this.mContent = new OogaahTutorialContent3B();
+			break;
+		case 11 :
+			this.mContent = new OogaahTutorialContent3A();
+			break;
+		case 12 :
+			this.mContent = new OogaahTutorialContent3S();
+			break;
+	}
+}
+// ...End
 
 // OogaahGameScene Class...
 // 
@@ -7023,7 +7554,7 @@ OogaahGameScene.prototype.SetUp = function() {
 		this.mBackColour.mDepth = 99999;
 		this.mBackColour.mColour = "#35251C"; */
 		
-		var tex = nmgrs.resMan.mTexStore.GetResource("gameBack");
+		var tex = nmgrs.resMan.mTextureStore.GetResource("gameBack");
 		this.mGameBack.SetTexture(tex);
 		this.mGameBack.SetPosition(new Vec2(2, 2));
 		this.mGameBack.mDepth = 99999;
@@ -7068,7 +7599,7 @@ OogaahGameScene.prototype.SetUp = function() {
 		this.mStatusAVText.mAlign = "centre";
 		this.mStatusAVText.SetString("0");
 		
-		var texAV = nmgrs.resMan.mTexStore.GetResource("statusAVBack");
+		var texAV = nmgrs.resMan.mTextureStore.GetResource("statusAVBack");
 		this.mStatusAVSprite.SetTexture(texAV);
 		this.mStatusAVSprite.SetPosition(new Vec2(pos.mX, pos.mY));
 		this.mStatusAVSprite.mDepth = 1;
@@ -7081,14 +7612,14 @@ OogaahGameScene.prototype.SetUp = function() {
 		this.mStatusSSText.mAlign = "centre";
 		this.mStatusSSText.SetString("0x");
 		
-		var texSS = nmgrs.resMan.mTexStore.GetResource("statusSSBack");
+		var texSS = nmgrs.resMan.mTextureStore.GetResource("statusSSBack");
 		this.mStatusSSSprite.SetTexture(texSS, 6, 1, -1, -1);
 		this.mStatusSSSprite.SetCurrentFrame(0);
 		this.mStatusSSSprite.SetPosition(new Vec2(pos.mX + 1, pos.mY + 38));
 		this.mStatusSSSprite.mDepth = 1;
 		
 		
-		var texIcons = nmgrs.resMan.mTexStore.GetResource("statusIcons");
+		var texIcons = nmgrs.resMan.mTextureStore.GetResource("statusIcons");
 		
 		this.mStatusWarrior.SetTexture(texIcons, 3, 3, -1, -1);
 		this.mStatusWarrior.SetCurrentFrame(1);
@@ -7239,14 +7770,14 @@ OogaahGameScene.prototype.Render = function() {
 
 OogaahGameScene.prototype.CreateCardList = function() {	
 	// load card face textures (large, medium and small)
-	var texLarge = nmgrs.resMan.mTexStore.GetResource("cardsLarge");
-	var texMedium = nmgrs.resMan.mTexStore.GetResource("cardsMedium");
-	var texSmall = nmgrs.resMan.mTexStore.GetResource("cardsSmall");
+	var texLarge = nmgrs.resMan.mTextureStore.GetResource("cardsLarge");
+	var texMedium = nmgrs.resMan.mTextureStore.GetResource("cardsMedium");
+	var texSmall = nmgrs.resMan.mTextureStore.GetResource("cardsSmall");
 	
 	// load card back textures (large, medium and small)
-	var texBackLarge = nmgrs.resMan.mTexStore.GetResource("cardBackLarge");
-	var texBackMedium = nmgrs.resMan.mTexStore.GetResource("cardBackMedium");
-	var texBackSmall = nmgrs.resMan.mTexStore.GetResource("cardBackSmall");
+	var texBackLarge = nmgrs.resMan.mTextureStore.GetResource("cardBackLarge");
+	var texBackMedium = nmgrs.resMan.mTextureStore.GetResource("cardBackMedium");
+	var texBackSmall = nmgrs.resMan.mTextureStore.GetResource("cardBackSmall");
 	
 	{ // add one of each card to the card list
 		this.mCardList.push(new OogaahCardGoblinHorde());
@@ -7328,6 +7859,10 @@ OogaahGameScene.prototype.DealCards = function(first) {
 	}
 	
 	this.mCurrPlayer = id; // set the current player
+	if (this.mPlayers[this.mCurrPlayer].mType == "AI") { // if the initial player is ai
+		this.mDelay = 1000; // add a delay before they play their first card
+	}
+	
 	for (var i = 0; i < this.mDeck.length; ++i) { // for all cards in the deck
 		this.mPlayers[id].mHand.AddCard(this.mDeck[i]); // add current card to current players hand
 		id = (id + 1) % 4; // go to next player
@@ -7967,8 +8502,8 @@ OogaahGraveyard.prototype.RemoveCard = function(id) {
 OogaahGraveyard.prototype.SetUp = function() {
 	{
 		// textures for card backs
-		var texBackMedium = nmgrs.resMan.mTexStore.GetResource("cardBackMedium");
-		var texBackSmall = nmgrs.resMan.mTexStore.GetResource("cardBackSmall");
+		var texBackMedium = nmgrs.resMan.mTextureStore.GetResource("cardBackMedium");
+		var texBackSmall = nmgrs.resMan.mTextureStore.GetResource("cardBackSmall");
 		
 		this.mCard.mHidden = true;
 		
@@ -7995,8 +8530,8 @@ OogaahGraveyard.prototype.SetUp = function() {
 	
 	{
 		// textures for card bundles
-		var texBundleMedium = nmgrs.resMan.mTexStore.GetResource("cardBundleMedium");
-		var texBundleSmall = nmgrs.resMan.mTexStore.GetResource("cardBundleSmall");
+		var texBundleMedium = nmgrs.resMan.mTextureStore.GetResource("cardBundleMedium");
+		var texBundleSmall = nmgrs.resMan.mTextureStore.GetResource("cardBundleSmall");
 		
 		// set up medium bundle sprite
 		this.mBundleSprites[1].SetTexture(texBundleMedium);
@@ -8017,7 +8552,7 @@ OogaahGraveyard.prototype.SetUp = function() {
 		this.mViewShape.mAlpha = 0.5;
 		this.mViewShape.mColour = "#000000";
 		
-		var arrowTex = nmgrs.resMan.mTexStore.GetResource("buttonGraveyardArrow");
+		var arrowTex = nmgrs.resMan.mTextureStore.GetResource("buttonGraveyardArrow");
 		this.mViewLeftButton.SetUp(new Vec2(136, 181), new Vec2(25, 50), -51);
 		this.mViewLeftButton.mSpriteIdle.SetTexture(arrowTex, 8, 2, -1, -1); this.mViewLeftButton.mSpriteIdle.SetCurrentFrame(0);
 		this.mViewLeftButton.mSpriteHover.SetTexture(arrowTex, 8, 2, -1, -1); this.mViewLeftButton.mSpriteHover.SetCurrentFrame(2);
@@ -9250,8 +9785,8 @@ OogaahHumanUI.prototype.SetUp = function(owner) {
 	{
 		// textures for ui buttons and font for button text
 		var fnt = nmgrs.resMan.mFontStore.GetResource("kingthings");
-		var texLarge = nmgrs.resMan.mTexStore.GetResource("buttonLarge");
-		var texSmall = nmgrs.resMan.mTexStore.GetResource("buttonSmall");
+		var texLarge = nmgrs.resMan.mTextureStore.GetResource("buttonLarge");
+		var texSmall = nmgrs.resMan.mTextureStore.GetResource("buttonSmall");
 		
 		{ // play button
 			var pos = new Vec2(506, 412); // button position
@@ -10052,7 +10587,7 @@ function OogaahPlayLog() {
 
 // initiate the log
 OogaahPlayLog.prototype.SetUp = function() {
-	var texIcon = nmgrs.resMan.mTexStore.GetResource("logIcons"); // the texture containing the icons for the play log
+	var texIcon = nmgrs.resMan.mTextureStore.GetResource("logIcons"); // the texture containing the icons for the play log
 	
 	for (var i = 0; i < this.mIconCount; ++i) { // for all icons
 		this.mIcons[i] = new Sprite(); // create a new sprite
@@ -10086,13 +10621,13 @@ OogaahPlayLog.prototype.SetUp = function() {
 	}
 	
 	// set up the log back graphic
-	var texBack = nmgrs.resMan.mTexStore.GetResource("logBack");
+	var texBack = nmgrs.resMan.mTextureStore.GetResource("logBack");
 	this.mLogBack.SetTexture(texBack);
 	this.mLogBack.SetPosition(new Vec2(this.mPos.mX - 42, this.mPos.mY - 10));
 	this.mLogBack.mDepth = -45;
 	
 	// set up the log front graphics
-	var texFront = nmgrs.resMan.mTexStore.GetResource("logFront");
+	var texFront = nmgrs.resMan.mTextureStore.GetResource("logFront");
 	this.mLogFront.SetTexture(texFront);
 	this.mLogFront.SetPosition(new Vec2(this.mPos.mX - 42, this.mPos.mY - 10));
 	this.mLogFront.mDepth = -55;
@@ -10916,7 +11451,7 @@ OogaahBehaviourSimple.prototype.DecideMode12 = function() {
 function OogaahBehaviourTutorial() {
 	OogaahBehaviourBase.apply(this, null); // construct the base class
 	
-	this.mDesired = new Array();
+	this.mDesired = new Array(); // an array of arrays of cards, making up the desired plays for the tutorial
 };
 
 // inherit the base class's prototype
@@ -11031,19 +11566,12 @@ OogaahBehaviourTutorial.prototype.DecideMode12 = function() {
 	return null; // return null
 }
 
-OogaahBehaviourTutorial.prototype.AddDesired = function(cards, string, inc, pos, size, adir, aoff, fadePos, fadeSize) {
+// adds a set of cards which act as a desired play to the player
+OogaahBehaviourTutorial.prototype.AddDesired = function(cards, msgInc) {
 	var desired = new OogaahTutorialDesired();
-	desired.mCards = util.ConcatArray(desired.mCards, cards);
-	desired.mString = string;
-	desired.mShowMessageInc = inc;
 	
-	desired.mPos.Copy(pos);
-	desired.mSize.Copy(size);
-	desired.mArrowDir = adir;
-	desired.mArrowOff = aoff;
-	
-	desired.mFadePos = fadePos;
-	desired.mFadeSize = fadeSize;
+	desired.mCards = util.ConcatArray(desired.mCards, cards); // add the cards
+	desired.mShowMessageInc = msgInc; // add the increment to the message iterator after successful play
 	
 	this.mDesired.push(desired);
 }
@@ -11151,7 +11679,7 @@ OogaahOptionsScene.prototype.SetUp = function() {
 	}
 	
 	{
-		var tex = nmgrs.resMan.mTexStore.GetResource("buttonLarge");
+		var tex = nmgrs.resMan.mTextureStore.GetResource("buttonLarge");
 		var fnt = nmgrs.resMan.mFontStore.GetResource("kingthings");
 		
 		this.mBackButton.SetUp(new Vec2(265, 424), new Vec2(109, 29), 0);
@@ -11180,7 +11708,7 @@ OogaahOptionsScene.prototype.SetUp = function() {
 		this.mLogHeader.SetUp(new Vec2(65, 60));
 		
 		{
-			var texCB = nmgrs.resMan.mTexStore.GetResource("optionsCheck");
+			var texCB = nmgrs.resMan.mTextureStore.GetResource("optionsCheck");
 			var fnt = nmgrs.resMan.mFontStore.GetResource("oldmansans");
 			var pos = new Vec2(100, 140);
 			
@@ -11449,17 +11977,8 @@ OogaahOptions.prototype.ResetOptions = function() {
 // OogaahTutorialDesired Class...
 //
 function OogaahTutorialDesired() {
-	this.mCards = new Array();
-	this.mString = "";
-	this.mShowMessageInc = 0;
-	
-	this.mPos = new Vec2();
-	this.mSize = new Vec2();
-	this.mArrowDir = "none";
-	this.mArrowOff = 0;
-	
-	this.mFadePos = new Vec2();
-	this.mFadeSize = new Vec2();
+	this.mCards = new Array(); // the desired cards
+	this.mShowMessageInc = 0; // the show message increment after a successful play
 };
 // ...End
 
@@ -11469,11 +11988,15 @@ function OogaahTutorialDesired() {
 function OogaahTutorialScene() {
 	OogaahGameScene.apply(this, null); // construct the base class
 	
-	this.mPlayers[0] = new OogaahTutorialHuman();
+	this.mPlayers[0] = new OogaahTutorialHuman(); // change the first player to a tutorial human
 	
-	this.mMessageQueue = new OogaahTutorialMessageQueue();
-	this.mShowMessage = 0;
-	this.mFinished = false;
+	this.mMessageQueue = new OogaahTutorialMessageQueue(); // the queue for tutorial messages
+	this.mMessageMeta = new Array(); // holds meta data about the messages in the queue
+	this.mShowMessage = 0; // the current message iterator (when > 0, show message at front of queue)
+	this.mFinished = false; // is the tutorial finished
+	
+	this.mTutorialContent = null; // the object that holds the tutorials content (players hands, messages and desired plays)
+	
 };
 
 // inherit the base class's prototype
@@ -11481,45 +12004,42 @@ OogaahTutorialScene.prototype = Object.create(OogaahGameScene.prototype);
 
 // initialises the scene object
 OogaahTutorialScene.prototype.SetUp = function() {
-	this.mBatch.mFrustrumCull = false;
+	this.mBatch.mFrustrumCull = false; // don't cull objects outside the screen
 	
-	{
-		var tex = nmgrs.resMan.mTexStore.GetResource("gameBack");
+	{ // set up the background image that makes up the game board
+		var tex = nmgrs.resMan.mTextureStore.GetResource("gameBack");
 		this.mGameBack.SetTexture(tex);
-		this.mGameBack.SetPosition(new Vec2(2, 2));
-		this.mGameBack.mDepth = 99999;
+		this.mGameBack.SetPosition(new Vec2(2, 2)); // slight offset for white border
+		this.mGameBack.mDepth = 99999; // always right at the back
 	}
 	
-	this.CreateCardList();
-	this.DealCards(0);
+	this.mMessageMeta.push(new Array()); // add blank meta data so it is always 1 behind message queue
 	
-	this.mGraveyard.SetUp();
+	this.CreateCardList(); // create the list holding one of each card
+	this.mTutorialContent.SetCards(); // set up player hands in accordance with the tutorial content
 	
-	for (var i = 0; i < this.mPlayers.length; ++i) {
-		this.mPlayers[i].SetUp(i);
-		this.mPlayers[i].PositionHand();
-	}
+	this.mGraveyard.SetUp(); // initialise the graveyard
 	
-	this.mLog.SetUp();
-	this.mLog.SetLoggedActions(noogaah.options.mLogOptions);
-	
-	for (var i = 0; i < this.mPlayers.length; ++i) {
-		if (this.mPlayers[i].mType == "AI") {
-			var behaviour = new OogaahBehaviourTutorial();
-			behaviour.SetUp(this.mPlayers[i]);
+	for (var i = 0; i < this.mPlayers.length; ++i) { // for all players
+		this.mPlayers[i].SetUp(i); // set up the player
+		this.mPlayers[i].PositionHand(); // position their cards
+		
+		if (this.mPlayers[i].mType == "AI") { // if the player is an ai player
+			var behaviour = new OogaahBehaviourTutorial(); // create a new tutorial behaviour
+			behaviour.SetUp(this.mPlayers[i]); // initialise the new behaviour with a reference to the player object
 			
-			this.mPlayers[i].mBehaviourStore.mBehaviours.push(behaviour);
+			this.mPlayers[i].mBehaviourStore.mBehaviours.push(behaviour); // add the behaviour to the player
 		}
 	}
 	
-	if (this.mPlayers[this.mCurrPlayer].mType == "Human") {
-		this.mPlayers[this.mCurrPlayer].OnTurnBegin();
-	}
+	this.mLog.SetUp(); // set up the play log
+	this.mLog.SetLoggedActions(noogaah.options.mLogOptions); // set the log's stored display options
 	
-	{
+	{ // set up and position the status elements
 		var pos = new Vec2(102, 143);
 		var fnt = nmgrs.resMan.mFontStore.GetResource("kingthings");
 		
+		// set up the current attack value element
 		this.mStatusAVText.SetFont(fnt);
 		this.mStatusAVText.SetFontSize(36);
 		this.mStatusAVText.SetPosition(new Vec2(pos.mX + 46, pos.mY - 3));
@@ -11528,11 +12048,13 @@ OogaahTutorialScene.prototype.SetUp = function() {
 		this.mStatusAVText.mAlign = "centre";
 		this.mStatusAVText.SetString("0");
 		
-		var texAV = nmgrs.resMan.mTexStore.GetResource("statusAVBack");
+		var texAV = nmgrs.resMan.mTextureStore.GetResource("statusAVBack");
 		this.mStatusAVSprite.SetTexture(texAV);
 		this.mStatusAVSprite.SetPosition(new Vec2(pos.mX, pos.mY));
 		this.mStatusAVSprite.mDepth = 1;
 		
+		
+		// set up the required squad size element
 		this.mStatusSSText.SetFont(fnt);
 		this.mStatusSSText.SetFontSize(16);
 		this.mStatusSSText.SetPosition(new Vec2(pos.mX + 46, pos.mY + 65));
@@ -11541,14 +12063,15 @@ OogaahTutorialScene.prototype.SetUp = function() {
 		this.mStatusSSText.mAlign = "centre";
 		this.mStatusSSText.SetString("0x");
 		
-		var texSS = nmgrs.resMan.mTexStore.GetResource("statusSSBack");
+		var texSS = nmgrs.resMan.mTextureStore.GetResource("statusSSBack");
 		this.mStatusSSSprite.SetTexture(texSS, 6, 1, -1, -1);
 		this.mStatusSSSprite.SetCurrentFrame(0);
 		this.mStatusSSSprite.SetPosition(new Vec2(pos.mX + 1, pos.mY + 38));
 		this.mStatusSSSprite.mDepth = 1;
 		
 		
-		var texIcons = nmgrs.resMan.mTexStore.GetResource("statusIcons");
+		// set up the game status element
+		var texIcons = nmgrs.resMan.mTextureStore.GetResource("statusIcons");
 		
 		this.mStatusWarrior.SetTexture(texIcons, 3, 3, -1, -1);
 		this.mStatusWarrior.SetCurrentFrame(1);
@@ -11566,160 +12089,42 @@ OogaahTutorialScene.prototype.SetUp = function() {
 		this.mStatusPeasants.mDepth = 1;
 	}
 	
-	{
-		this.mShowMessage = 4;
-		this.mMessageQueue.PushMessage(new Vec2(Math.round(nmain.game.mCanvasSize.mX / 4), 80),
-				"Welcome to the 'Example Round' tutorial!",
-				new Vec2(Math.round(nmain.game.mCanvasSize.mX / 2), 30), "none", 0);
-		
-		this.mMessageQueue.PushMessage(new Vec2(Math.round(nmain.game.mCanvasSize.mX / 4), 80),
-				"In this tutorial we will play a short round of Oogaah.",
-				new Vec2(Math.round(nmain.game.mCanvasSize.mX / 2), 45), "none", 0);
-		
-		this.mMessageQueue.PushMessage(new Vec2(Math.round(nmain.game.mCanvasSize.mX / 4), 80),
-				"It is currently our turn and no cards have been played yet, so we can play whichever cards we like.",
-				new Vec2(Math.round(nmain.game.mCanvasSize.mX / 2), 45), "none", 0);
-		
-		this.mMessageQueue.PushMessage(new Vec2(84, 280),
-				"Start by playing both of our Goblin Overseers.",
-				new Vec2(280, 45), "down", 10, new Vec2(96, 377), new Vec2(39, 102));
-		
-		
-		this.mMessageQueue.PushMessage(new Vec2(Math.round(nmain.game.mCanvasSize.mX / 4), 80),
-				"Our Goblin Overseer's ability activated which allows us to play any Goblin Hordes in our hand.",
-				new Vec2(Math.round(nmain.game.mCanvasSize.mX / 2), 45), "none", 0);
-		
-		this.mMessageQueue.PushMessage(new Vec2(34, 280),
-				"Now would be a great time to get rid of our single Goblin Horde, so play it now.",
-				new Vec2(280, 45), "down", 10, new Vec2(24, 377), new Vec2(71, 102));
-		
-		
-		this.mMessageQueue.PushMessage(new Vec2(248, 156),
-				"When using this ability, the Current Attack Value and Required Squad Size both become 1, regardless of the number of Goblin Hordes played.",
-				new Vec2(Math.round(nmain.game.mCanvasSize.mX / 2), 60), "left", 12, new Vec2(99, 142), new Vec2(99, 84));
-		
-		
-		this.mMessageQueue.PushMessage(new Vec2(122, 276),
-				"The first AI made a play similar to ours (Goblin Overseer, then Goblin Hordes via its ability).",
-				new Vec2(280, 60), "up", 218, new Vec2(320, 136), new Vec2(71, 102));
-		
-		
-		this.mMessageQueue.PushMessage(new Vec2(122, 276),
-				"The second AI played 2 Goblin Hordes using their ability.",
-				new Vec2(280, 45), "up", 218, new Vec2(320, 136), new Vec2(71, 102));
-		
-		this.mMessageQueue.PushMessage(new Vec2(248, 156),
-				"This ignores the Required Squad Size (setting both it and the Current Attack Value to the number of Goblin Hordes played).",
-				new Vec2(Math.round(nmain.game.mCanvasSize.mX / 2), 60), "left", 12, new Vec2(99, 142), new Vec2(99, 84));
-		
-		
-		this.mMessageQueue.PushMessage(new Vec2(122, 276),
-				"The third AI just played 2 Orc Berserkers.",
-				new Vec2(280, 30), "up", 218, new Vec2(320, 136), new Vec2(71, 102));
-		
-		this.mMessageQueue.PushMessage(new Vec2(74, 280),
-				"Notice that our Orc Berserker actually lost some attack value!",
-				new Vec2(280, 45), "down", 10, new Vec2(96, 377), new Vec2(19, 102));
-		
-		this.mMessageQueue.PushMessage(new Vec2(Math.round(nmain.game.mCanvasSize.mX / 4), 80),
-				"This persists throughout the current battle, so it's usually wise to dispose of them early on.",
-				new Vec2(Math.round(nmain.game.mCanvasSize.mX / 2), 45), "none", 0);
-		
-		this.mMessageQueue.PushMessage(new Vec2(nmain.game.mCanvasSize.mX - 300, nmain.game.mCanvasSize.mY - 126),
-				"We can't currently make a move, so pass our turn.",
-				new Vec2(280, 45), "down", 203, new Vec2(505, 446), new Vec2(110, 30));
-		
-		this.mMessageQueue.PushMessage(new Vec2(Math.round(nmain.game.mCanvasSize.mX / 4), 80),
-				"No one could make a move (or chose not to) and it passed back the the last player who played (CPU 3). As a result the current game status has reset and it is now the third AI's turn again.",
-				new Vec2(Math.round(nmain.game.mCanvasSize.mX / 2), 75), "none", 0);
-	}
+	this.mTutorialContent.SetMessages(); // set up tutorial messages in accordance with the tutorial content
+	this.mTutorialContent.SetDesired(); // set up desired plays in accordance with the tutorial content
 	
-	{
-		this.mMessageQueue.PushMessage(new Vec2(122, 276),
-				"The third AI played an Orc Warchief.",
-				new Vec2(280, 30), "up", 218, new Vec2(320, 136), new Vec2(71, 102));
-		
-		this.mMessageQueue.PushMessage(new Vec2(94, 265),
-				"Whilst we could play our Being of Energy, sometimes it is wiser to save cards to play in combos later.",
-				new Vec2(280, 60), "down", 10, new Vec2(116, 377), new Vec2(19, 102));
-		
-		this.mMessageQueue.PushMessage(new Vec2(nmain.game.mCanvasSize.mX - 300, nmain.game.mCanvasSize.mY - 111),
-				"So for now, just pass our turn.",
-				new Vec2(280, 30), "down", 203, new Vec2(505, 446), new Vec2(110, 30));
-		
-		
-		this.mMessageQueue.PushMessage(new Vec2(nmain.game.mCanvasSize.mX - 300, nmain.game.mCanvasSize.mY - 126),
-				"Once again we'd like to save our cards, so pass.",
-				new Vec2(280, 45), "down", 203, new Vec2(505, 446), new Vec2(110, 30));
+	if (this.mPlayers[this.mCurrPlayer].mType == "Human") { // if the current (initial) player is a human
+		this.mPlayers[this.mCurrPlayer].OnTurnBegin(); // perform logic for the beginning of their turn
 	}
-	
-	{
-		this.mMessageQueue.PushMessage(new Vec2(122, 276),
-				"The second AI just played a Human Knight which activated its ability.",
-				new Vec2(280, 45), "up", 218, new Vec2(320, 136), new Vec2(71, 102));
-		
-		this.mMessageQueue.PushMessage(new Vec2(248, 210),
-				"This means that the only card that can be played next in the current skirmish is a Human Peasant.",
-				new Vec2(Math.round(nmain.game.mCanvasSize.mX / 2), 45), "left", 16, new Vec2(99, 230), new Vec2(99, 24));
-		
-		
-		this.mMessageQueue.PushMessage(new Vec2(34, 280),
-				"It's our turn and the Human Knight's ability is still in effect, so play our Human Peasant.",
-				new Vec2(280, 45), "down", 10, new Vec2(24, 377), new Vec2(71, 102));
-		
-		
-		this.mMessageQueue.PushMessage(new Vec2(122, 276),
-				"It is once again our turn and the current card is a Human Mage.",
-				new Vec2(280, 45), "up", 218, new Vec2(320, 136), new Vec2(71, 102));
-		
-		this.mMessageQueue.PushMessage(new Vec2(Math.round(nmain.game.mCanvasSize.mX / 4), 80),
-				"We can now go on to win the battle from here by playing our Being of Energy. It has the highest attack value and nothing can beat it when it is played by itself.",
-				new Vec2(Math.round(nmain.game.mCanvasSize.mX / 2), 75), "none", 0);
-		
-		this.mMessageQueue.PushMessage(new Vec2(74, 295),
-				"So go ahead and play our Being of Energy.",
-				new Vec2(280, 30), "down", 10, new Vec2(96, 377), new Vec2(19, 102));
+	else {
+		this.mDelay = 1000; // add a delay before the ai plays their first card
 	}
-	
-	{
-		this.mMessageQueue.PushMessage(new Vec2(Math.round(nmain.game.mCanvasSize.mX / 4), 80),
-				"The board has been cleared, we have only 1 card left and it is our turn.",
-				new Vec2(Math.round(nmain.game.mCanvasSize.mX / 2), 45), "none", 0);
-		
-		this.mMessageQueue.PushMessage(new Vec2(34, 280),
-				"Play our last card - the Orc Berserker - and win the battle!",
-				new Vec2(280, 45), "down", 10, new Vec2(24, 377), new Vec2(71, 102));
-		
-		
-		this.mMessageQueue.PushMessage(new Vec2(Math.round(nmain.game.mCanvasSize.mX / 4), 80),
-				"Congratulations, a masterful victory! Continue to return to the main menu.",
-				new Vec2(Math.round(nmain.game.mCanvasSize.mX / 2), 45), "none", 0);
-	}
-	
-	this.SetDesired();
 }
 
 // handles user input
 OogaahTutorialScene.prototype.Input = function() {
-	if (this.mShowMessage == 0) {
+	if (this.mShowMessage == 0) { // if we are not showing tutorial messages
 		this.mGraveyard.Input(); // process the graveyard's user input
 		this.mLog.Input(); // process the play log's user input
 		
-		for (var i = 0; i < this.mPlayers.length; ++i) {
-			if (this.mPlayers[i].mType == "Human") {
-				this.mPlayers[i].Input();
+		for (var i = 0; i < this.mPlayers.length; ++i) { // for all players
+			if (this.mPlayers[i].mType == "Human") { // if the player is human
+				this.mPlayers[i].Input(); // process player's input
 			}
 		}
 	}
 	else {
-		this.mMessageQueue.Input();
+		var clicked = this.mMessageQueue.Input(); // handle message queue input, returning true if message was removed from queue
 		
-		if (nmgrs.inputMan.GetMousePressed(nmouse.button.code.left)) {
-			if (this.mShowMessage == 1 && this.mFinished == true) {
-				nmgrs.sceneMan.RequestSceneChange(new OogaahMenuScene());
+		if (clicked == true) { // if message was removed from queue
+			if (this.mShowMessage == 1 && this.mFinished == true) { // if we are at the last message and our tutorial is finished
+				nmgrs.sceneMan.RequestSceneChange(new OogaahMenuScene()); // return to main menu
 			}
-			else if (this.mShowMessage > 0) {
-				--this.mShowMessage;
+			else {
+				--this.mShowMessage; // decrement the message iterator
+				
+				if (this.mMessageMeta.length > 0) { // if there is still message meta data
+					this.mMessageMeta.splice(0, 1); // remove 1 from the meta data
+				}
 			}
 		}
 	}
@@ -11727,50 +12132,50 @@ OogaahTutorialScene.prototype.Input = function() {
 
 // handles game logic
 OogaahTutorialScene.prototype.Process = function() {
-	if (this.mShowMessage == 0) {
+	if (this.mShowMessage == 0) { // if we are not showing tutorial messages
 		this.mLog.Process(); // process the play log
 		
 		this.mGraveyard.Process(); // process the graveyard
 		
-		for (var i = 0; i < this.mPlayers.length; ++i) {
-			if (this.mPlayers[i].mType == "Human") {
-				this.mPlayers[i].Process();
+		for (var i = 0; i < this.mPlayers.length; ++i) { // for all players
+			if (this.mPlayers[i].mType == "Human") { // if the player is human 
+				this.mPlayers[i].Process(); // process the player
 			}
 		}
 		
-		if (this.mDelay <= 0) {
-			if (this.mPlayers[this.mCurrPlayer].mType == "AI") {
-				this.mPlayers[this.mCurrPlayer].Process();
+		if (this.mDelay <= 0) { // if the ai action delay timer has elapsed
+			if (this.mPlayers[this.mCurrPlayer].mType == "AI") { // if the current player is ai
+				this.mPlayers[this.mCurrPlayer].Process(); // process the ai
 			}
 		}
 		else {
-			if (this.mPlayers[this.mCurrPlayer].mType == "Human") {
-				if (this.mPlayers[this.mCurrPlayer].mFinished == false) {
-					this.mDelay = 0;
+			if (this.mPlayers[this.mCurrPlayer].mType == "Human") { // if the current player is human
+				if (this.mPlayers[this.mCurrPlayer].mFinished == false) { // if the player is still in the game
+					this.mDelay = 0; // remove the delay
 				}
 			}
 			else {
-				this.mDelay -= 1000 / nmain.game.mFrameLimit;
+				this.mDelay -= 1000 / nmain.game.mFrameLimit; // set the delay to 1 second
 			}
 		}
 		
-		if (this.mFinishedCount == 3) {
-			var lastPlayer = null;
-			for (var i = 0; i < this.mPlayers.length; ++i) {
-				if (this.mPlayers[i].mFinished == false) {
-					lastPlayer = this.mPlayers[i];
-					break;
+		if (this.mFinishedCount == 3) { // if 3 of 4 players are finished
+			var lastPlayer = null; // reference to the remaining player
+			for (var i = 0; i < this.mPlayers.length; ++i) { // for all players
+				if (this.mPlayers[i].mFinished == false) { // if the player hasn't finished
+					lastPlayer = this.mPlayers[i]; // then they are the remaining player
+					break; // stop searching
 				}
 			}
 			
 			this.mLog.AddEntry(10, lastPlayer.mName + " was thoroughly decimated (4th)!"); // add entry to the play log
-			lastPlayer.mFinished = true;
-			++this.mFinishedCount;
-			this.mLastPlayer = -1;
+			lastPlayer.mFinished = true; // last player has now finished
+			++this.mFinishedCount; // increment count of finished players
+			this.mLastPlayer = -1; // unset last player to play
 		}
 	}
 	else {
-		// show message
+		this.mMessageQueue.Process(); // process the tutorial message queue
 	}
 }
 
@@ -11781,286 +12186,73 @@ OogaahTutorialScene.prototype.Render = function() {
 	
 	var arr = new Array();
 	
-	arr.push(this.mGameBack);
+	arr.push(this.mGameBack); // add the game board
 	
 	arr = util.ConcatArray(arr, this.mLog.GetRenderData()); // render the play log
 	
-	for (var i = 0; i < 4; ++i) {
-		arr = util.ConcatArray(arr, this.mPlayers[i].GetRenderData());
+	for (var i = 0; i < this.mPlayers.length; ++i) { // for all players
+		arr = util.ConcatArray(arr, this.mPlayers[i].GetRenderData()); // render the player data
 	}
 	
+	// render the graveyard and battlefield zones
 	arr = util.ConcatArray(arr, this.mGraveyard.GetRenderData());
 	arr = util.ConcatArray(arr, this.mBattlefield.GetRenderData());
 	
-	{
-		arr.push(this.mStatusAVSprite);
+	{ // render the game status
+		arr.push(this.mStatusAVSprite); // add the current attack value icon
 		
-		if (this.mStatusAVText.mString != "0") {
-			arr.push(this.mStatusAVText);
+		if (this.mStatusAVText.mString != "0") { // if the current attack value text is valid
+			arr.push(this.mStatusAVText); // add the current attack value text
 		}
 		
-		arr.push(this.mStatusSSSprite);
+		arr.push(this.mStatusSSSprite); // add the required squad size icon
 		
-		if (this.mStatusSSText.mString != "0x") {
-			arr.push(this.mStatusSSText);
+		if (this.mStatusSSText.mString != "0x") { // if the required squad size text is valid
+			arr.push(this.mStatusSSText); // add the required squad size text
 		}
 		
-		if (this.mWarriorOwner != -1) {
-			arr.push(this.mStatusWarrior);
+		if (this.mWarriorOwner != -1) { // if the orc warrior's ability is active
+			arr.push(this.mStatusWarrior); // add the icon
 		}
 		
-		if (this.mReversed == true) {
-			arr.push(this.mStatusReversed);
+		if (this.mReversed == true) { // if the orc shaman's ability is active
+			arr.push(this.mStatusReversed); // add the icon
 		}
 		
-		if (this.mOnlyPeasants == true) {
-			arr.push(this.mStatusPeasants);
+		if (this.mOnlyPeasants == true) { // if the human knight's ability is active
+			arr.push(this.mStatusPeasants); // add the icon
 		}
 	}
 	
-	if (this.mShowMessage != 0) {
-		arr = util.ConcatArray(arr, this.mMessageQueue.GetRenderData());
+	if (this.mShowMessage != 0) { // if we are to show tutorial messages
+		arr = util.ConcatArray(arr, this.mMessageQueue.GetRenderData()); // add the current tutorial message from the queue
 	}
 	
 	for (var i = 0; i < arr.length; ++i) {
 		this.mBatch.Add(arr[i]);
 	}
 	
-	this.mBatch.Render(null, null);
+	this.mBatch.Render(null, null); // render to default target with default camera
 }
 
-OogaahTutorialScene.prototype.DealCards = function(first) {
-	this.mCurrPlayer = first; // set the current player
-	
-	{
-		// cards
-		this.mPlayers[0].mHand.AddCard(this.mCardList[0]);
-		
-		this.mPlayers[0].mHand.AddCard(this.mCardList[1]);
-		this.mPlayers[0].mHand.AddCard(this.mCardList[1]);
-		
-		this.mPlayers[0].mHand.AddCard(this.mCardList[2]);
-		
-		this.mPlayers[0].mHand.AddCard(this.mCardList[9]);
-		
-		this.mPlayers[0].mHand.AddCard(this.mCardList[12]);
+// adds desired tutorial plays to the specified player
+OogaahTutorialScene.prototype.AddDesired = function(playerID, cards, msgInc) {
+	if (this.mPlayers[playerID].mType == "Human") { // if the player is human
+		this.mPlayers[playerID].AddDesired(cards, msgInc); // add the desired plays
 	}
-	
-	{
-		// "dead" cards (won't ever be played)
-		this.mPlayers[1].mHand.AddCard(this.mCardList[0]);
-		this.mPlayers[1].mHand.AddCard(this.mCardList[0]);
-		this.mPlayers[1].mHand.AddCard(this.mCardList[0]);
-		
-		// cards
-		this.mPlayers[1].mHand.AddCard(this.mCardList[0]);
-		this.mPlayers[1].mHand.AddCard(this.mCardList[0]);
-		
-		this.mPlayers[1].mHand.AddCard(this.mCardList[1]);
-	}
-	
-	{
-		// "dead" cards (won't ever be played)
-		this.mPlayers[2].mHand.AddCard(this.mCardList[0]);
-		this.mPlayers[2].mHand.AddCard(this.mCardList[0]);
-		this.mPlayers[2].mHand.AddCard(this.mCardList[0]);
-		this.mPlayers[2].mHand.AddCard(this.mCardList[0]);
-		this.mPlayers[2].mHand.AddCard(this.mCardList[0]);
-		
-		// cards
-		this.mPlayers[2].mHand.AddCard(this.mCardList[0]);
-		this.mPlayers[2].mHand.AddCard(this.mCardList[0]);
-		
-		this.mPlayers[2].mHand.AddCard(this.mCardList[7]);
-		
-		this.mPlayers[2].mHand.AddCard(this.mCardList[8]);
-		
-		this.mPlayers[2].mHand.AddCard(this.mCardList[11]);
-	}
-	
-	{
-		// "dead" cards (won't ever be played)
-		this.mPlayers[3].mHand.AddCard(this.mCardList[0]);
-		this.mPlayers[3].mHand.AddCard(this.mCardList[0]);
-		
-		// cards
-		this.mPlayers[3].mHand.AddCard(this.mCardList[9]);
-		this.mPlayers[3].mHand.AddCard(this.mCardList[9]);
-		
-		this.mPlayers[3].mHand.AddCard(this.mCardList[10]);
+	else { // otherwise it is an ai player
+		this.mPlayers[playerID].mBehaviourStore.mBehaviours[0].AddDesired(cards, msgInc); // add the desired plays
 	}
 }
 
-OogaahTutorialScene.prototype.SetDesired = function() {
-	/*
-	 * a.[0] 2x Overseer 	- "Play Overseer"
-	 * b.[0] 1x Horde 		- "Play Horde"
-	 * c.[1] 1x Overseer
-	 * d.[1] 2x Horde
-	 * e.[2] 2x Horde		- "Notice ability"
-	 * f.[3] 2x Berserker	- "Notice ability"
-	 * g.[0] Pass 			- "Pass"
-	 * h.[1] Pass
-	 * i.[2] Pass			- "AI won, reset"
-	 */
-	
-	{
-		// a.[0]
-		this.mPlayers[0].AddDesired(new Array(this.mCardList[1], this.mCardList[1]),
-				"Not quite! Start by playing both of your Goblin Overseers.",
-				2, new Vec2(84, 280), new Vec2(280, 45), "down", 10, new Vec2(96, 377), new Vec2(39, 102));
-		
-		// b.[0]
-		this.mPlayers[0].AddDesired(new Array(this.mCardList[0]),
-				"Not quite! Now would be a great time to get rid of our single Goblin Horde, so play it now.",
-				1, new Vec2(34, 265), new Vec2(280, 60), "down", 10, new Vec2(24, 377), new Vec2(71, 102));
-		
-		// c.[1]
-		this.mPlayers[1].mBehaviourStore.mBehaviours[0].AddDesired(new Array(this.mCardList[1]),
-				"", 0, new Vec2(), new Vec2(), "none", 0);
-		
-		// d.[1]
-		this.mPlayers[1].mBehaviourStore.mBehaviours[0].AddDesired(new Array(this.mCardList[0], this.mCardList[0]),
-				"", 1, new Vec2(), new Vec2(), "none", 0);
-		
-		// e.[2]
-		this.mPlayers[2].mBehaviourStore.mBehaviours[0].AddDesired(new Array(this.mCardList[0], this.mCardList[0]),
-				"", 2, new Vec2(), new Vec2(), "none", 0);
-		
-		// f.[3]
-		this.mPlayers[3].mBehaviourStore.mBehaviours[0].AddDesired(new Array(this.mCardList[9], this.mCardList[9]),
-				"", 4, new Vec2(), new Vec2(), "none", 0);
-		
-		// g.[0]
-		this.mPlayers[0].AddDesired(new Array(),
-				"Not quite! We can't currently make a move, so pass your turn.",
-				0, new Vec2(nmain.game.mCanvasSize.mX - 300, nmain.game.mCanvasSize.mY - 126), new Vec2(280, 45), "down", 203, new Vec2(505, 446), new Vec2(110, 30));
-		
-		// h.[1]
-		this.mPlayers[1].mBehaviourStore.mBehaviours[0].AddDesired(new Array(),
-				"", 0, new Vec2(), new Vec2(), "none", 0);
-		
-		// i.[2]
-		this.mPlayers[2].mBehaviourStore.mBehaviours[0].AddDesired(new Array(),
-				"", 1, new Vec2(), new Vec2(), "none", 0);
-	}
-	
-	
-	/*
-	 * a.[3] 1x Warchief
-	 * b.[0] Pass 			- "Pass, don't always play"
-	 * c.[1] Pass
-	 * d.[2] 1x Paladin
-	 * e.[3] Pass
-	 * f.[0] Pass			- "pass"
-	 * g.[1] Pass
-	 */
-	
-	{
-		// a.[3]
-		this.mPlayers[3].mBehaviourStore.mBehaviours[0].AddDesired(new Array(this.mCardList[10]),
-				"", 3, new Vec2(), new Vec2(), "none", 0);
-		
-		// b.[0]
-		this.mPlayers[0].AddDesired(new Array(),
-				"Not quite! So for now, just pass our turn.",
-				0, new Vec2(nmain.game.mCanvasSize.mX - 300, nmain.game.mCanvasSize.mY - 111), new Vec2(280, 30), "down", 203, new Vec2(505, 446), new Vec2(110, 30));
-		
-		// c.[1]
-		this.mPlayers[1].mBehaviourStore.mBehaviours[0].AddDesired(new Array(),
-				"", 0, new Vec2(), new Vec2(), "none", 0);
-		
-		// d.[2]
-		this.mPlayers[2].mBehaviourStore.mBehaviours[0].AddDesired(new Array(this.mCardList[11]),
-				"", 0, new Vec2(), new Vec2(), "none", 0);
-		
-		// e.[3]
-		this.mPlayers[3].mBehaviourStore.mBehaviours[0].AddDesired(new Array(),
-				"", 1, new Vec2(), new Vec2(), "none", 0);
-		
-		// f.[0]
-		this.mPlayers[0].AddDesired(new Array(),
-				"Not quite! Once again we'd like to save our cards, so pass.",
-				0, new Vec2(nmain.game.mCanvasSize.mX - 300, nmain.game.mCanvasSize.mY - 126), new Vec2(280, 45), "down", 203, new Vec2(505, 446), new Vec2(110, 30));
-		
-		// g.[1]
-		this.mPlayers[1].mBehaviourStore.mBehaviours[0].AddDesired(new Array(),
-				"", 0, new Vec2(), new Vec2(), "none", 0);
-	}
-	
-	
-	/*
-	 * a.[2] 1x Knight		- "ability"
-	 * b.[3] Pass
-	 * c.[0] 1x Peasant		- "play peasant"
-	 * d.[1] Pass
-	 * e.[2] 1x Mage
-	 * f.[3] Pass
-	 * g.[0] 1x Being		- "play being, setting up for the guaranteed win"
-	 * h.[1] Pass
-	 * i.[2] Pass
-	 * j.[3] Pass
-	 */
-	
-	{
-		// a.[2]
-		this.mPlayers[2].mBehaviourStore.mBehaviours[0].AddDesired(new Array(this.mCardList[8]),
-				"", 2, new Vec2(), new Vec2(), "none", 0);
-		
-		// b.[3]
-		this.mPlayers[3].mBehaviourStore.mBehaviours[0].AddDesired(new Array(),
-				"", 1, new Vec2(), new Vec2(), "none", 0);
-		
-		// c.[0]
-		this.mPlayers[0].AddDesired(new Array(this.mCardList[2]),
-				"Not quite! It's our turn and the Human Knight's ability is still in effect, so play our Human Peasant.",
-				0, new Vec2(34, 265), new Vec2(280, 60), "down", 10, new Vec2(24, 377), new Vec2(71, 102));
-		
-		// d.[1]
-		this.mPlayers[1].mBehaviourStore.mBehaviours[0].AddDesired(new Array(),
-				"", 0, new Vec2(), new Vec2(), "none", 0);
-		
-		// e.[2]
-		this.mPlayers[2].mBehaviourStore.mBehaviours[0].AddDesired(new Array(this.mCardList[7]),
-				"", 0, new Vec2(), new Vec2(), "none", 0);
-		
-		// f.[3]
-		this.mPlayers[3].mBehaviourStore.mBehaviours[0].AddDesired(new Array(),
-				"", 3, new Vec2(), new Vec2(), "none", 0);
-		
-		// g.[0]
-		this.mPlayers[0].AddDesired(new Array(this.mCardList[12]),
-				"Not quite! So go ahead and play our Being of Energy.",
-				0, new Vec2(74, 280), new Vec2(280, 45), "down", 10, new Vec2(96, 377), new Vec2(19, 102));
-		
-		// h.[1]
-		this.mPlayers[1].mBehaviourStore.mBehaviours[0].AddDesired(new Array(),
-				"", 0, new Vec2(), new Vec2(), "none", 0);
-		
-		// i.[2]
-		this.mPlayers[2].mBehaviourStore.mBehaviours[0].AddDesired(new Array(),
-				"", 0, new Vec2(), new Vec2(), "none", 0);
-		
-		// j.[3]
-		this.mPlayers[3].mBehaviourStore.mBehaviours[0].AddDesired(new Array(),
-				"", 2, new Vec2(), new Vec2(), "none", 0);
-	}
-	
-	
-	/*
-	 * a.[0] 1x Berserker
-	*/
-	
-	{
-		// a.[0]
-		{
-			var card = this.mCardList[9].GetCopy();
-			card.ModifyValue(-2);
-			
-			this.mPlayers[0].AddDesired(new Array(card),
-					"Not quite! Play our last card - the Orc Berserker - and win the battle!.",
-					1, new Vec2(34, 280), new Vec2(280, 45), "down", 10, new Vec2(24, 377), new Vec2(71, 102));
-		}
+// adds a repeat of the previous message if a desired play wasn't performed correctly
+OogaahTutorialScene.prototype.AddRepeatMessage = function() {
+	if (this.mMessageMeta.length > 0) { // if there is still message meta data
+		// add the repeat message to the start of the queue and increment the iterator so it displays
+		++this.mShowMessage;
+		this.mTutorialContent.AddMessage(this.mMessageMeta[0][0], "Not Quite! " + this.mMessageMeta[0][1],
+				this.mMessageMeta[0][2], 0);
+		this.mMessageQueue.mQueue[0].SetTimeout(0.4);
 	}
 }
 // ...End
@@ -12073,6 +12265,7 @@ function OogaahTutorialMessage() {
 	this.mSize = new Vec2();
 	
 	this.mCanContinue = true;
+	this.mContinueTimer = 0;
 	this.mArrowDirection = -1;
 	
 	this.mShape = new Shape();
@@ -12209,6 +12402,11 @@ OogaahTutorialMessage.prototype.SetArrow = function(direction, offset) {
 			break;
 	}
 }
+
+OogaahTutorialMessage.prototype.SetTimeout = function(time) {
+	this.mCanContinue = false;
+	this.mContinueTimer = time;
+}
 // ...End
 
 
@@ -12227,7 +12425,7 @@ OogaahTutorialMessageQueue.prototype.PushMessage = function(pos, string, size, d
 	
 	msg.mText.SetPosition(pos);
 	msg.mText.SetString(string);
-	msg.mText.EnableWrapping(size.mX - 10);
+	msg.mText.EnableWrapping(size.mX - 10, 10);
 	
 	msg.mTextContinue.SetPosition(pos);
 	msg.mTextContinue.SetOrigin(new Vec2(-size.mX + 5, -size.mY + 2));
@@ -12250,7 +12448,7 @@ OogaahTutorialMessageQueue.prototype.InsertMessage = function(pos, string, size,
 	
 	msg.mText.SetPosition(pos);
 	msg.mText.SetString(string);
-	msg.mText.EnableWrapping(size.mX - 10);
+	msg.mText.EnableWrapping(size.mX - 10, 10);
 	
 	msg.mTextContinue.SetPosition(pos);
 	msg.mTextContinue.SetOrigin(new Vec2(-size.mX + 5, -size.mY + 2));
@@ -12285,6 +12483,20 @@ OogaahTutorialMessageQueue.prototype.Input = function() {
 					nmgrs.inputMan.GetMouseInCanvas() == true) {
 				
 				this.PopMessage();
+				return true;
+			}
+		}
+	}
+	
+	return false;
+}
+
+OogaahTutorialMessageQueue.prototype.Process = function() {
+	if (this.mQueue.length > 0) {
+		if (this.mQueue[0].mCanContinue == false) {
+			this.mQueue[0].mContinueTimer -= 1 / nmain.game.mFrameLimit;
+			if (this.mQueue[0].mContinueTimer <= 0) {
+				this.mQueue[0].mCanContinue = true;
 			}
 		}
 	}
@@ -12362,7 +12574,7 @@ OogaahMessageFade.prototype.GetRenderData = function() {
 function OogaahTutorialHuman() {
 	OogaahHuman.apply(this, null); // construct the base class
 	
-	this.mDesired = new Array();
+	this.mDesired = new Array(); // an array of arrays of cards, making up the desired plays for the tutorial
 };
 
 // inherit the base class's prototype
@@ -12371,84 +12583,68 @@ OogaahTutorialHuman.prototype = Object.create(OogaahHuman.prototype);
 // logic called when the play button is clicked in the player gui
 OogaahTutorialHuman.prototype.OnPlay = function() {
 	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
-	
-	var match = true; // assume a match initially
-	
-	{
-		var arr = new Array(); arr = util.ConcatArray(arr, this.GetSelected()); // get the currently selected cards
-		
-		if (this.mDesired.length > 0) { // if we have desired cards
-			if (arr.length == this.mDesired[0].mCards.length) { // if the lengths match then we potentially have a match
-				if (arr.length > 0) {
-					for (var i = 0; i < arr.length; ++i) { // for all cards in both arrays
-						// if the cards don't match
-						if (arr[i].mCardAttack != this.mDesired[0].mCards[i].mCardAttack ||
-								arr[i].mCardValue != this.mDesired[0].mCards[i].mCardValue) {
-							
-							match = false; // indicated no match
-							break; // stop
-						}
-					}
-				}
-				else {
-					match = false;
-				}
-			}
-			else { // otherwise, mismatched lengths indicate no match
-				match = false;
-			}
-		}
-		else { // otherwise, no desired cards
-			match = false;
-		}
-	}
-	
-	if (match == false) { // if we didn't get a match
-		if (this.mDesired.length > 0) {
-			++currScene.mShowMessage;
-			currScene.mMessageQueue.InsertMessage(this.mDesired[0].mPos, this.mDesired[0].mString, this.mDesired[0].mSize,
-					this.mDesired[0].mArrowDir, this.mDesired[0].mArrowOff,
-					this.mDesired[0].mFadePos, this.mDesired[0].mFadeSize,
-					0);
-		}
-	}
-	else {
-		currScene.mShowMessage += this.mDesired[0].mShowMessageInc;
-		this.mDesired.splice(0, 1);
-		
+
+	var success = false; // is our desired play successful
+	if (this.mDesired.length > 0) { // if the is at least 1 desired card
 		if (this.mMode == 5 && this.mSubMode == "b") { // if we are in goblin technician mode (submode b)
-			for (var i = 0; i < this.mHand.mCards.length; ++i) { // for all cards
-				this.mSelectedCards[i] = 3; // set cards to single-selectable (3)
-				this.mHand.mCards[i].mDarken = false;
+			// if there is a desired card (a card means accept decision)
+			if (this.mDesired[0].mCards.length > 0) {
+				for (var i = 0; i < this.mHand.mCards.length; ++i) { // for all cards
+					this.mSelectedCards[i] = 3; // set cards to single-selectable (3)
+					this.mHand.mCards[i].mDarken = false;
+				}
+				
+				this.mGUI.mDisplayCard = null;
+				
+				// update player gui text
+				this.mGUI.mButtonText[0].SetString("Swap Card");
+				this.mGUI.ShowMessage(true, "Choose which card to swap or pass.");
+				
+				this.mSubMode = "c"; // change to submode c
+				
+				success = true; // play was successful
 			}
-			
-			this.mGUI.mDisplayCard = null;
-			
-			// update player gui text
-			this.mGUI.mButtonText[0].SetString("Swap Card");
-			this.mGUI.ShowMessage(true, "Choose which card to swap or pass.");
-			
-			this.mSubMode = "c"; // change to submode c
 		}
 		else if (this.mMode == 6) { // otherwise if we are in orc shaman mode
-			currScene.mReversed = !currScene.mReversed; // reverse the current game values
-			
-			// update player gui text
-			this.mGUI.mButtonText[0].SetString("Play");
-			this.mGUI.ShowMessage(false);
-			
-			currScene.mLog.AddEntry(3, this.mName + " reversed card values for this skirmish."); // add entry to the play log
-			
-			this.mMode = 0; // reset to mode 0
-			this.ResetSelected(); // reset selected states
-			currScene.ChangePlayer(); // change to the next player
-			currScene.mDelay = 1000;
+			// if there is a desired card (a card means accept decision)
+			if (this.mDesired[0].mCards.length > 0) {
+				currScene.mReversed = !currScene.mReversed; // reverse the current game values
+				
+				// update player gui text
+				this.mGUI.mButtonText[0].SetString("Play");
+				this.mGUI.ShowMessage(false);
+				
+				currScene.mLog.AddEntry(3, this.mName + " reversed card values for this skirmish."); // add entry to the play log
+				
+				this.mMode = 0; // reset to mode 0
+				this.ResetSelected(); // reset selected states
+				currScene.ChangePlayer(); // change to the next player
+				currScene.mDelay = 1000;
+				
+				success = true; // play was successful
+			}
 		}
 		else { // otherwise we are in normal play
+			// check that selected match desired
 			var arr = new Array(); arr = util.ConcatArray(arr, this.GetSelected()); // get the currently selected cards
-			if (arr.length > 0) { // if we have selected at least 1 card
-				arr[0].Play(arr); // play that/those cards
-				currScene.mDelay = 1000;
+			
+			// if the lengths match and are not 0 then we potentially have a match
+			if (arr.length > 0 && arr.length == this.mDesired[0].mCards.length) {
+				success = true; // assume we have a success (adjusted later if not true)
+				for (var i = 0; i < arr.length; ++i) { // for all cards in both arrays
+					// if the cards don't match
+					if (arr[i].mCardAttack != this.mDesired[0].mCards[i].mCardAttack ||
+							arr[i].mCardValue != this.mDesired[0].mCards[i].mCardValue) {
+						
+						success = false; // turns out we have no success
+						break; // stop
+					}
+				}
+				
+				if (success == true) { // if we still have success
+					arr[0].Play(arr); // play that/those cards
+					currScene.mDelay = 1000;
+				}
 			}
 		}
 		
@@ -12467,8 +12663,19 @@ OogaahTutorialHuman.prototype.OnPlay = function() {
 			this.mFinished = true;
 		}
 		
-		if (this.mDesired.length == 0) {
-			currScene.mFinished = true;
+		if (success == true) { // if we made a successful play
+			// increment message display and remove desired cards
+			currScene.mShowMessage += this.mDesired[0].mShowMessageInc;
+			this.mDesired.splice(0, 1);
+		}
+		else {
+			if (this.mDesired.length > 0) { // if there is at least 1 desired card
+				currScene.AddRepeatMessage(); // add a repeated instruction message
+			}
+		}
+		
+		if (this.mDesired.length == 0) { // if there are no more desired cards
+			currScene.mFinished = true; // we are done with the tutorial
 		}
 	}
 }
@@ -12489,11 +12696,7 @@ OogaahTutorialHuman.prototype.OnPass = function() {
 	
 	if (match == false) { // if we didn't get a match
 		if (this.mDesired.length > 0) {
-			++currScene.mShowMessage;
-			currScene.mMessageQueue.InsertMessage(this.mDesired[0].mPos, this.mDesired[0].mString, this.mDesired[0].mSize,
-					this.mDesired[0].mArrowDir, this.mDesired[0].mArrowOff,
-					this.mDesired[0].mFadePos, this.mDesired[0].mFadeSize,
-					0);
+			currScene.AddRepeatMessage(); // add a repeated instruction message
 		}
 	}
 	else {
@@ -12638,22 +12841,1506 @@ OogaahTutorialHuman.prototype.OnPass = function() {
 	}
 }
 
-// 
-OogaahTutorialHuman.prototype.AddDesired = function(cards, string, inc, pos, size, adir, aoff, fadePos, fadeSize) {
+// logic to handle user input when relating to goblin technician's ability
+OogaahTutorialHuman.prototype.HandleGoblinTechnician = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+	
+	if (this.mMode == 5) { // if we are in goblin technician mode
+		if (this.mSubMode == "a") { // if we are in submode a
+			this.mChosenPlayer = null; // reset chosen player to null
+			var found = false; // selected player hand not found
+			var player = null; // selected player is null
+			
+			for (var i = 0; i < 4; ++i) { // for all other players
+				if (i != this.mPlayerID) {
+					var p = currScene.mPlayers[i]; // store a reference to the player
+					var hand = p.mHand; // store a reference to the player's hand
+					
+					p.Highlight(false); // player isn't highlighted
+					
+					if (found == false) { // if we haven't yet found a player hand
+						if (p.HandHighlighted() == true) { // if we are hovering over the current player's hand
+							player = currScene.mPlayers[i]; // store the reference to that player
+							this.mChosenPlayer = hand; // store a reference to that player's hand
+							this.mChosenID = i; // store that players id
+							
+							found = true; // indicate we have found a player
+							p.Highlight(true); // highlight the current player's hand
+						}
+					}
+				}
+			}
+			
+			if (this.mChosenPlayer == null) { // if we didn't find a player previously
+				player = currScene.mGraveyard; // store a reference to the graveyard
+				
+				player.Highlight(false); // graveyard isn't highlighted
+				if (currScene.mGraveyard.HandHighlighted() == true) { // if we are hovering over the current graveyard
+					this.mChosenPlayer = currScene.mGraveyard; // store a reference to the graveyard
+					this.mChosenID = -1; // store the graveyards id (-1)
+					
+					player.Highlight(true); // highlight the graveyard
+				}
+			}
+			
+			if (nmgrs.inputMan.GetMousePressed(nmouse.button.code.left) == true) { // if left mouse button is clicked
+				if (this.mChosenPlayer != null) { // if we have found a player (inc. the graveyard)
+					var match = true; // assume a match initially
+					
+					{
+						if (this.mDesired.length > 0) { // if we have desired cards
+							if (this.mDesired[0].mCards.length > 1) { // 
+								if (this.mDesired[0].mCards[0].mCardValue != this.mChosenID) {
+									match = false;
+								}
+							}
+							else { // 
+								match = false;
+							}
+						}
+						else { // otherwise, no desired cards
+							match = false;
+						}
+					}
+					
+					if (match == false) { // if we didn't get a match
+						if (this.mDesired.length > 0) {
+							currScene.AddRepeatMessage(); // add a repeated instruction message
+						}
+					}
+					else { // if it is the desired player
+						if (this.mChosenPlayer.mCards.length > 0) { // if the player has at least 1 card
+							// select a card from the chosen player's hand
+							this.mChosenCard = this.mDesired[0].mCards[1].mCardValue;
+							
+							{
+								this.mGUI.mDisplayCard = this.mChosenPlayer.mCards[this.mChosenCard].GetCopy();
+								this.mGUI.mDisplayCard.mHidden = false;
+								this.mGUI.mDisplayCard.mDarken = false;
+								this.mGUI.mDisplayCard.mSize = 1;
+								this.mGUI.mDisplayCard.mCardSprites[1].SetOrigin(new Vec2());
+								this.mGUI.mDisplayCard.mCardSprites[1].SetPosition(new Vec2(246, 121));
+								this.mGUI.mDisplayCard.mCardSprites[1].SetRotation(0);
+								this.mGUI.mDisplayCard.mCardSprites[1].mDepth = -10;
+								
+								// if the card is a human peasant or an orc berserker
+								if (this.mGUI.mDisplayCard.mCardAttack == "3" || this.mGUI.mDisplayCard.mCardAttack == "C") {
+									this.mGUI.mDisplayCard.PositionValueText();
+								}
+							}
+							
+							player.Highlight(false); // unhighlight the chosen player
+							for (var i = 0; i < 4; ++i) { // for all other players
+								if (i != this.mPlayerID) {
+									currScene.mPlayers[i].mSelectable = false; // player can't be selected
+								}
+							}
+							
+							currScene.mGraveyard.mSelectable = false; // graveyard can't be selected
+							
+							// update player gui text
+							this.mGUI.mButtons[0].mActive = true;
+							this.mGUI.mButtonCovers[0].mActive = true;
+							this.mGUI.mButtonText[0].SetString("Accept");
+							this.mGUI.ShowMessage(true, "Choose to accept " + this.mChosenPlayer.mCards[this.mChosenCard].mCardType +
+									" " + this.mChosenPlayer.mCards[this.mChosenCard].mCardName + " or pass.");
+							
+							this.mSubMode = "b"; // enter submode b
+							
+							currScene.mShowMessage += this.mDesired[0].mShowMessageInc;
+							this.mDesired.splice(0, 1);
+						}
+					}
+				}
+			}
+			else { // otherwise if no mouse button was pressed
+				this.mChosenPlayer = null; // reset the selected player to null
+			}
+		}
+	}
+}
+
+// adds a set of cards which act as a desired play to the player
+OogaahTutorialHuman.prototype.AddDesired = function(cards, msgInc) {
 	var desired = new OogaahTutorialDesired();
-	desired.mCards = util.ConcatArray(desired.mCards, cards);
-	desired.mString = string;
-	desired.mShowMessageInc = inc;
 	
-	desired.mPos.Copy(pos);
-	desired.mSize.Copy(size);
-	desired.mArrowDir = adir;
-	desired.mArrowOff = aoff;
-	
-	desired.mFadePos = fadePos;
-	desired.mFadeSize = fadeSize;
+	desired.mCards = util.ConcatArray(desired.mCards, cards); // add the cards
+	desired.mShowMessageInc = msgInc; // add the increment to the message iterator after successful play
 	
 	this.mDesired.push(desired);
+}
+// ...End
+
+
+// OogaahTutorialContent Class...
+//
+function OogaahTutorialContent() {
+	
+};
+
+OogaahTutorialContent.prototype.SetCards = function() {
+	
+}
+
+OogaahTutorialContent.prototype.SetMessages = function() {
+	
+}
+
+OogaahTutorialContent.prototype.SetDesired = function() {
+	
+}
+
+// adds a default tutorial message (no highlight or specific position required)
+OogaahTutorialContent.prototype.AddMessageDefault = function(string, position) {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+	
+	var pos = new Vec2(); var size = new Vec2(); // the position and size of the message box
+	
+	{ // set up the message box
+		// create an example text object used to measure the number of lines
+		var fnt = nmgrs.resMan.mFontStore.GetResource("kingthings");
+		var text = new Text();
+		text.SetOrigin(new Vec2(-5, 0));
+		text.SetFont(fnt);
+		text.SetFontSize(16);
+		text.mAlign = "justify";
+		text.mDepth = -1000;
+		text.mVSpacing = 0.9;
+		
+		// set the string and wrapping to properly position text
+		text.SetString(string);
+		text.EnableWrapping(Math.round(nmain.game.mCanvasSize.mX / 2) - 10, 10);
+		
+		// set the position and size of the message box depending on the number of lines in the string
+		pos.Set(Math.round(nmain.game.mCanvasSize.mX / 4), 80);
+		size.Set(Math.round(nmain.game.mCanvasSize.mX / 2), 20 + (16 * (text.mLines)));
+	}
+	
+	if (position == null) {
+		currScene.mMessageQueue.PushMessage(pos, string, size, "none", 0, new Vec2(), new Vec2()); // add the message to the queue
+		currScene.mMessageMeta.push(new Array("default", string, new Array()));
+	}
+	else {
+		currScene.mMessageQueue.PushMessage(pos, string, size, "none", new Vec2(), new Vec2(), position); // insert the message into the queue
+		currScene.mMessageMeta.splice(position, 0, new Array("default", string, new Array()));
+	}
+}
+
+// adds a card tutorial message (highlight a selection of cards, message positioned above)
+OogaahTutorialContent.prototype.AddMessageCard = function(string, initial, number, position) {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+	
+	var pos = new Vec2(); var size = new Vec2(); // the position and size of the message box
+	var hiPos = new Vec2(); var hiSize = new Vec2(); // the position and size of the highlight
+	
+	{ // set up the highlight
+		if (initial == 0) { // if the initial card is the first card
+			// set the highlight to the whole first card
+			hiPos.Set(24, 377);
+			hiSize.Set(72, 103);
+		}
+		else { // otherwise if it is any other card (and thus partially hidden)
+			// set the highlight to the visible part
+			hiPos.Set(96 + (20 * (initial - 1)), 377);
+			hiSize.Set(20, 103);
+		}
+		
+		for (var i = 0; i < number - 1; ++i) { // for all subsequent highlighted cards
+			hiSize.mX += 20; // increase the width of the highlight to encompass them
+		}
+	}
+	
+	{ // set up the message box
+		// create an example text object used to measure the number of lines
+		var fnt = nmgrs.resMan.mFontStore.GetResource("kingthings");
+		var text = new Text();
+		text.SetOrigin(new Vec2(-5, 0));
+		text.SetFont(fnt);
+		text.SetFontSize(16);
+		text.mAlign = "justify";
+		text.mDepth = -1000;
+		text.mVSpacing = 0.9;
+		
+		// set the string and wrapping to properly position text
+		text.SetString(string);
+		text.EnableWrapping(290, 10);
+		
+		// set the position and size of the message box depending on the highlight and number of lines in the string
+		pos.Set(hiPos.mX + (hiSize.mX / 2) - 38, 280 - (16 * (text.mLines)));
+		size.Set(300, 20 + (16 * (text.mLines)));
+	}
+	
+	if (position == null) {
+		currScene.mMessageQueue.PushMessage(pos, string, size, "down", 20, hiPos, hiSize); // add the message to the queue
+		currScene.mMessageMeta.push(new Array("card", string, new Array(initial, number)));
+	}
+	else {
+		currScene.mMessageQueue.InsertMessage(pos, string, size, "down", 20, hiPos, hiSize, position); // insert the message into the queue
+		currScene.mMessageMeta.splice(position, 0, new Array("card", string, new Array(initial, number)));
+	}
+}
+
+// adds a battlefield message (highlight the specified zone, message positioned below)
+OogaahTutorialContent.prototype.AddMessageZone = function(string, zone, position) {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+	
+	var off = 0;
+	var pos = new Vec2(); var size = new Vec2(); // the position and size of the message box
+	var hiPos = new Vec2(); var hiSize = new Vec2(); // the position and size of the highlight
+	
+	{ // set up the highlight
+		if (zone == "battlefield") { // if the specified zone is the battlefield
+			hiPos.Set(318, 135); // set the highlight position to the battlefield
+		}
+		else { // otherwise if it is the graveyard
+			hiPos.Set(218, 154); // set the highlight position to the graveyard
+			
+			off = 19; // set the y offset
+		}
+		
+		hiSize.Set(76, 107);
+	}
+	
+	{ // set up the message box
+		// create an example text object used to measure the number of lines
+		var fnt = nmgrs.resMan.mFontStore.GetResource("kingthings");
+		var text = new Text();
+		text.SetOrigin(new Vec2(-5, 0));
+		text.SetFont(fnt);
+		text.SetFontSize(16);
+		text.mAlign = "justify";
+		text.mDepth = -1000;
+		text.mVSpacing = 0.9;
+		
+		// set the string and wrapping to properly position text
+		text.SetString(string);
+		text.EnableWrapping(270, 10);
+		
+		// set the position and size of the message box depending on the highlight and number of lines in the string
+		pos.Set(hiPos.mX + (hiSize.mX / 2) - 140, 280 + off);
+		size.Set(280, 20 + (16 * (text.mLines)));
+	}
+	
+	if (position == null) {
+		currScene.mMessageQueue.PushMessage(pos, string, size, "up", 122, hiPos, hiSize); // add the message to the queue
+		currScene.mMessageMeta.push(new Array("zone", string, new Array(zone)));
+	}
+	else {
+		currScene.mMessageQueue.InsertMessage(pos, string, size, "up", 122, hiPos, hiSize, position); // insert the message into the queue
+		currScene.mMessageMeta.splice(position, 0, new Array("zone", string, new Array(zone)));
+	}
+}
+
+// adds an ai hand message (highlight the specified ai's hand, message positioned below)
+OogaahTutorialContent.prototype.AddMessageAI = function(string, id, position) {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+	
+	var aiID = id - 1;
+	var arrowOff = 20;
+	
+	var pos = new Vec2(); var size = new Vec2(); // the position and size of the message box
+	var hiPos = new Vec2(); var hiSize = new Vec2(); // the position and size of the highlight
+	
+	{ // set up the highlight
+		if (aiID < 0 || aiID > 2) {
+			aiID = 0;
+		}
+		
+		hiPos.Set(25 + (210 * aiID), 0);
+		hiSize.Set(151, 60);
+	}
+	
+	{ // set up the message box
+		if (aiID == 1) {
+			arrowOff = 182;
+		}
+		else if (aiID == 2) {
+			arrowOff = 342;
+		}
+		
+		// create an example text object used to measure the number of lines
+		var fnt = nmgrs.resMan.mFontStore.GetResource("kingthings");
+		var text = new Text();
+		text.SetOrigin(new Vec2(-5, 0));
+		text.SetFont(fnt);
+		text.SetFontSize(16);
+		text.mAlign = "justify";
+		text.mDepth = -1000;
+		text.mVSpacing = 0.9;
+		
+		// set the string and wrapping to properly position text
+		text.SetString(string);
+		text.EnableWrapping(390, 10);
+		
+		// set the position and size of the message box depending on the highlight and number of lines in the string
+		pos.Set(hiPos.mX + (hiSize.mX / 2) - (arrowOff + 18), 106);
+		size.Set(400, 20 + (16 * (text.mLines)));
+	}
+	
+	if (position == null) {
+		currScene.mMessageQueue.PushMessage(pos, string, size, "up", arrowOff, hiPos, hiSize); // add the message to the queue
+		currScene.mMessageMeta.push(new Array("ai", string, new Array(id, 0)));
+	}
+	else {
+		currScene.mMessageQueue.InsertMessage(pos, string, size, "up", arrowOff, hiPos, hiSize, position); // insert the message into the queue
+		currScene.mMessageMeta.splice(position, 0, new Array("ai", string, new Array(id, 0)));
+	}
+}
+
+// adds an ui message (highlight the specified ui button, message positioned above)
+OogaahTutorialContent.prototype.AddMessageUI = function(string, button, position) {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+	
+	var off = 0;
+	var pos = new Vec2(); var size = new Vec2(); // the position and size of the message box
+	var hiPos = new Vec2(); var hiSize = new Vec2(); // the position and size of the highlight
+	
+	{ // set up the highlight
+		if (button == "play") { // if the specified button is the play button
+			hiPos.Set(506, 412); // set the highlight position to the play button
+		}
+		else { // otherwise if it is the pass button
+			hiPos.Set(506, 447); // set the highlight position to the pass button
+			
+			off = 35; // set the y offset
+		}
+		
+		hiSize.Set(109, 29);
+	}
+	
+	{ // set up the message box
+		// create an example text object used to measure the number of lines
+		var fnt = nmgrs.resMan.mFontStore.GetResource("kingthings");
+		var text = new Text();
+		text.SetOrigin(new Vec2(-5, 0));
+		text.SetFont(fnt);
+		text.SetFontSize(16);
+		text.mAlign = "justify";
+		text.mDepth = -1000;
+		text.mVSpacing = 0.9;
+		
+		// set the string and wrapping to properly position text
+		text.SetString(string);
+		text.EnableWrapping(270, 10);
+		
+		// set the position and size of the message box depending on the highlight and number of lines in the string
+		pos.Set(hiPos.mX + (hiSize.mX / 2) - 221, nmain.game.mCanvasSize.mY - (140 - off) - (16 * (text.mLines)));
+		size.Set(280, 20 + (16 * (text.mLines)));
+	}
+	
+	if (position == null) {
+		currScene.mMessageQueue.PushMessage(pos, string, size, "down", 203, hiPos, hiSize); // add the message to the queue
+		currScene.mMessageMeta.push(new Array("ui", string, new Array(button)));
+	}
+	else {
+		currScene.mMessageQueue.InsertMessage(pos, string, size, "down", 203, hiPos, hiSize, position); // insert the message into the queue
+		currScene.mMessageMeta.splice(position, 0, new Array("ui", string, new Array(button)));
+	}
+}
+
+// adds a game status message (highlight the specified game status(es), message positioned to the right)
+OogaahTutorialContent.prototype.AddMessageStatus = function(string, initial, number, position) {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+	
+	var arrowOff = 0;
+	var pos = new Vec2(); var size = new Vec2(); // the position and size of the message box
+	var hiPos = new Vec2(); var hiSize = new Vec2(); // the position and size of the highlight
+	
+	{ // set up the highlight
+		if (initial == 0) { // if the initial status is the current attack value
+			// set the highlight to the whole first card
+			hiPos.Set(100, 144);
+			hiSize.Set(97, 36);
+			
+			if (number > 1) {
+				hiSize.mY += 46;
+			}
+			
+			if (number > 2) {
+				hiSize.mY += 24;
+			}
+		}
+		else if (initial == 1) { // otherwise if it is the required squad size
+			// set the highlight to the visible part
+			hiPos.Set(100, 181);
+			hiSize.Set(97, 45);
+			
+			if (number > 1) {
+				hiSize.mY += 24;
+			}
+		}
+		else { // otherwise it is the current mode icons
+			hiPos.Set(100, 234);
+			hiSize.Set(97, 16);
+		}
+	}
+	
+	{ // set up the message box
+		// create an example text object used to measure the number of lines
+		var fnt = nmgrs.resMan.mFontStore.GetResource("kingthings");
+		var text = new Text();
+		text.SetOrigin(new Vec2(-5, 0));
+		text.SetFont(fnt);
+		text.SetFontSize(16);
+		text.mAlign = "justify";
+		text.mDepth = -1000;
+		text.mVSpacing = 0.9;
+		
+		// set the string and wrapping to properly position text
+		text.SetString(string);
+		text.EnableWrapping(Math.round(nmain.game.mCanvasSize.mX / 2) - 10, 10);
+		
+		// calculate the arrow offset based on the height of the message box
+		var height = 40 + (16 * (text.mLines));
+		arrowOff = (height / 2) - 18;
+		
+		// set the position and size of the message box depending on the highlight and number of lines in the string
+		pos.Set(254, hiPos.mY + (hiSize.mY / 2) - (arrowOff + 18));
+		size.Set(Math.round(nmain.game.mCanvasSize.mX / 2), 20 + (16 * (text.mLines)));
+	}
+	
+	if (position == null) {
+		currScene.mMessageQueue.PushMessage(pos, string, size, "left", arrowOff, hiPos, hiSize); // add the message to the queue
+		currScene.mMessageMeta.push(new Array("status", string, new Array(initial, number)));
+	}
+	else {
+		currScene.mMessageQueue.InsertMessage(pos, string, size, "left", arrowOff, hiPos, hiSize, position); // insert the message into the queue
+		currScene.mMessageMeta.splice(position, 0, new Array("status", string, new Array(initial, number)));
+	}
+}
+
+OogaahTutorialContent.prototype.AddMessage = function(type, string, additional, position) {
+	switch (type) {
+		case "card" :
+			if (additional.length > 1) {
+				this.AddMessageCard(string, additional[0], additional[1], position);
+			}
+			
+			break;
+		case "zone" :
+			if (additional.length > 0) {
+				this.AddMessageZone(string, additional[0], position);
+			}
+			
+			break;
+		case "ai" :
+			if (additional.length > 0) {
+				this.AddMessageAI(string, additional[0], position);
+			}
+			
+			break;
+		case "ui" :
+			if (additional.length > 0) {
+				this.AddMessageUI(string, additional[0], position);
+			}
+			
+			break;
+		case "status" :
+			if (additional.length > 1) {
+				this.AddMessageStatus(string, additional[0], additional[1], position);
+			}
+			
+			break;
+		default :
+			this.AddMessageDefault(string, position);
+			break;
+	}
+}
+// ...End
+
+
+// OogaahTutorialContent1 Class...
+// tutorial content for ""
+function OogaahTutorialContent1() {
+	OogaahTutorialContent.apply(this, null); // construct the base class
+};
+
+// inherit the base class's prototype
+OogaahTutorialContent1.prototype = Object.create(OogaahTutorialContent.prototype);
+
+// adds cards to the player's hands
+OogaahTutorialContent1.prototype.SetCards = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+	
+	currScene.mCurrPlayer = 0; // set the initial player
+}
+
+// adds messages to the tutorial message queue
+OogaahTutorialContent1.prototype.SetMessages = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+	
+	currScene.mFinished = true; // default blank tutorial - set finished to true
+	currScene.mShowMessage = 1; // the initial show message count
+	this.AddMessage("default", "And that's that! Continue to return to the main menu.", new Array());
+	
+	{ // set up the timeout for all the messages
+		var queue = currScene.mMessageQueue.mQueue; // reference to the actual message queue
+		for (var i = 0; i < queue.length; ++i) { // for all messages in the queue
+			queue[i].SetTimeout(0.4); // set the timeout to 0.4 seconds
+		}
+	}
+}
+
+// adds the desired play card arrays to the players
+OogaahTutorialContent1.prototype.SetDesired = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+}
+// ...End
+
+
+// OogaahTutorialContent2 Class...
+// tutorial content for ""
+function OogaahTutorialContent2() {
+	OogaahTutorialContent.apply(this, null); // construct the base class
+};
+
+// inherit the base class's prototype
+OogaahTutorialContent2.prototype = Object.create(OogaahTutorialContent.prototype);
+
+// adds cards to the player's hands
+OogaahTutorialContent2.prototype.SetCards = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+	
+	currScene.mCurrPlayer = 0; // set the initial player
+}
+
+// adds messages to the tutorial message queue
+OogaahTutorialContent2.prototype.SetMessages = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+	
+	currScene.mFinished = true; // default blank tutorial - set finished to true
+	currScene.mShowMessage = 1; // the initial show message count
+	this.AddMessage("default", "And that's that! Continue to return to the main menu.", new Array());
+	
+	{ // set up the timeout for all the messages
+		var queue = currScene.mMessageQueue.mQueue; // reference to the actual message queue
+		for (var i = 0; i < queue.length; ++i) { // for all messages in the queue
+			queue[i].SetTimeout(0.4); // set the timeout to 0.4 seconds
+		}
+	}
+}
+
+// adds the desired play card arrays to the players
+OogaahTutorialContent2.prototype.SetDesired = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+}
+// ...End
+
+
+// OogaahTutorialContent31 Class...
+// tutorial content for "goblin horde" card
+function OogaahTutorialContent31() {
+	OogaahTutorialContent.apply(this, null); // construct the base class
+};
+
+// inherit the base class's prototype
+OogaahTutorialContent31.prototype = Object.create(OogaahTutorialContent.prototype);
+
+// adds cards to the player's hands
+OogaahTutorialContent31.prototype.SetCards = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+	
+	currScene.mCurrPlayer = 3; // set the initial player to the third ai
+	
+	{ // player 0 (human)
+		// 3 goblin horde
+		currScene.mPlayers[0].mHand.AddCard(currScene.mCardList[0]);
+		currScene.mPlayers[0].mHand.AddCard(currScene.mCardList[0]);
+		currScene.mPlayers[0].mHand.AddCard(currScene.mCardList[0]);
+	}
+	
+	{ // player 1 (ai)
+		// 1 goblin horde - not played
+		currScene.mPlayers[1].mHand.AddCard(currScene.mCardList[0]);
+	}
+	
+	{ // player 2 (ai)
+		// 1 goblin horde - not played
+		currScene.mPlayers[2].mHand.AddCard(currScene.mCardList[0]);
+	}
+	
+	{ // player 3 (ai)
+		// 1 goblin horde - not played
+		currScene.mPlayers[3].mHand.AddCard(currScene.mCardList[0]);
+		
+		// 2 goblin overseer
+		currScene.mPlayers[3].mHand.AddCard(currScene.mCardList[1]);
+		currScene.mPlayers[3].mHand.AddCard(currScene.mCardList[1]);
+	}
+}
+
+// adds messages to the tutorial message queue
+OogaahTutorialContent31.prototype.SetMessages = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+	
+	currScene.mShowMessage = 4; // the initial show message count
+	this.AddMessage("default", "Welcome to the 'Goblin Horde' tutorial!", new Array());
+	this.AddMessage("card", "In this tutorial we will learn how the Goblin Horde card works.", new Array(0, 3));
+	this.AddMessage("default", "The Goblin Horde's ability activates when it is played in a squad of 2 or more.", new Array());
+	this.AddMessage("default", "It completely ignores the Required Squad Size for the current skirmish. In addition to this, it sets the effective attack value of the Goblin Hordes to the number played.", new Array());
+	
+	this.AddMessage("zone", "The AI played 2x Goblin Overseer.", new Array("battlefield"));
+	this.AddMessage("card", "Try playing all of our Goblin Hordes together.", new Array(0, 3));
+	
+	this.AddMessage("status", "Notice how both the Current Attack Value and the Required Squad Size are set to the number of Goblin Hordes we played?", new Array(0, 2));
+	this.AddMessage("default", "This can be useful not only to get rid of our low value Goblin Hordes but also to set up combos with other cards later.", new Array());
+	this.AddMessage("default", "And that's that! Continue to return to the main menu.", new Array());
+	
+	{ // set up the timeout for all the messages
+		var queue = currScene.mMessageQueue.mQueue; // reference to the actual message queue
+		for (var i = 0; i < queue.length; ++i) { // for all messages in the queue
+			queue[i].SetTimeout(0.4); // set the timeout to 0.4 seconds
+		}
+	}
+}
+
+// adds the desired play card arrays to the players
+OogaahTutorialContent31.prototype.SetDesired = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+	
+	currScene.AddDesired(3, new Array(currScene.mCardList[1], currScene.mCardList[1]), 0); // 2x overseer
+	currScene.AddDesired(3, new Array(), 2); // no hordes using ability
+	currScene.AddDesired(0, new Array(currScene.mCardList[0], currScene.mCardList[0], currScene.mCardList[0]), 3); // 3x horde
+}
+// ...End
+
+
+// OogaahTutorialContent32 Class...
+// tutorial content for "goblin overseer" card
+function OogaahTutorialContent32() {
+	OogaahTutorialContent.apply(this, null); // construct the base class
+};
+
+// inherit the base class's prototype
+OogaahTutorialContent32.prototype = Object.create(OogaahTutorialContent.prototype);
+
+// adds cards to the player's hands
+OogaahTutorialContent32.prototype.SetCards = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+	
+	currScene.mCurrPlayer = 0; // set the initial player to the human
+	
+	{ // player 0 (human)
+		// 2 goblin horde
+		currScene.mPlayers[0].mHand.AddCard(currScene.mCardList[0]);
+		currScene.mPlayers[0].mHand.AddCard(currScene.mCardList[0]);
+		
+		// 1 goblin overseer
+		currScene.mPlayers[0].mHand.AddCard(currScene.mCardList[1]);
+	}
+	
+	{ // player 1 (ai)
+		// 1 goblin horde - not played
+		currScene.mPlayers[1].mHand.AddCard(currScene.mCardList[0]);
+	}
+	
+	{ // player 2 (ai)
+		// 1 goblin horde - not played
+		currScene.mPlayers[2].mHand.AddCard(currScene.mCardList[0]);
+	}
+	
+	{ // player 3 (ai)
+		// 1 goblin horde - not played
+		currScene.mPlayers[3].mHand.AddCard(currScene.mCardList[0]);
+	}
+}
+
+// adds messages to the tutorial message queue
+OogaahTutorialContent32.prototype.SetMessages = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+	
+	currScene.mShowMessage = 6; // the initial show message count
+	this.AddMessage("default", "Welcome to the 'Goblin Overseer' tutorial!", new Array());
+	this.AddMessage("card", "In this tutorial we will learn how the Goblin Overseer card works.", new Array(2, 1));
+	this.AddMessage("default", "The Goblin Overseer's ability allows us to also play any Goblin Hordes in our hand if we wish.", new Array());
+	this.AddMessage("default", "As a result, it will only activate if we have any Goblin Hordes.", new Array());
+	this.AddMessage("default", "If we choose to play any Goblin Hordes then both the Current Attack Value and Required Squad Size become 1, regardless of the number played.", new Array());
+	this.AddMessage("card", "To start, play our Goblin Overseer.", new Array(2, 1));
+	
+	this.AddMessage("card", "Now play 2x Goblin Horde using the Goblin Overseer's ability.", new Array(0, 2));
+	
+	this.AddMessage("status", "Notice how both the Current Attack Value and Required Squad Size are now 1?", new Array(0, 2));
+	this.AddMessage("default", "We could use this to set ourselves up for playing a higher valued single card, or to prevent opponents from playing big combos.", new Array());
+	this.AddMessage("default", "It's also really useful for ditching those single Goblin Hordes!", new Array());
+	this.AddMessage("default", "And that's that! Continue to return to the main menu.", new Array());
+	
+	{ // set up the timeout for all the messages
+		var queue = currScene.mMessageQueue.mQueue; // reference to the actual message queue
+		for (var i = 0; i < queue.length; ++i) { // for all messages in the queue
+			queue[i].SetTimeout(0.4); // set the timeout to 0.4 seconds
+		}
+	}
+}
+
+// adds the desired play card arrays to the players
+OogaahTutorialContent32.prototype.SetDesired = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+	
+	currScene.AddDesired(0, new Array(currScene.mCardList[1]), 1); // 1x overseer
+	currScene.AddDesired(0, new Array(currScene.mCardList[0], currScene.mCardList[0]), 4); // 2x hordes using ability
+}
+// ...End
+
+
+// OogaahTutorialContent33 Class...
+// tutorial content for "human peasant" card
+function OogaahTutorialContent33() {
+	OogaahTutorialContent.apply(this, null); // construct the base class
+};
+
+// inherit the base class's prototype
+OogaahTutorialContent33.prototype = Object.create(OogaahTutorialContent.prototype);
+
+// adds cards to the player's hands
+OogaahTutorialContent33.prototype.SetCards = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+	
+	currScene.mCurrPlayer = 3; // set the initial player to the third ai
+	
+	{ // player 0 (human)
+		// 1 human peasant
+		currScene.mPlayers[0].mHand.AddCard(currScene.mCardList[2]);
+	}
+	
+	{ // player 1 (ai)
+		// 1 goblin horde - not played
+		currScene.mPlayers[1].mHand.AddCard(currScene.mCardList[0]);
+		
+		// 1 human cleric
+		currScene.mPlayers[1].mHand.AddCard(currScene.mCardList[6]);
+	}
+	
+	{ // player 2 (ai)
+		// 1 goblin horde - not played
+		currScene.mPlayers[2].mHand.AddCard(currScene.mCardList[0]);
+	}
+	
+	{ // player 3 (ai)
+		// 1 goblin horde - not played
+		currScene.mPlayers[3].mHand.AddCard(currScene.mCardList[0]);
+		
+		// 1 human knight
+		currScene.mPlayers[3].mHand.AddCard(currScene.mCardList[8]);
+	}
+}
+
+// adds messages to the tutorial message queue
+OogaahTutorialContent33.prototype.SetMessages = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+	
+	currScene.mShowMessage = 5; // the initial show message count
+	this.AddMessage("default", "Welcome to the 'Human Peasant' tutorial!", new Array());
+	this.AddMessage("card", "In this tutorial we will learn how the Human Peasant card works.", new Array(0, 1));
+	this.AddMessage("default", "The Human Peasant's ability is reactive and relies on another card: the Human Knight.", new Array());
+	this.AddMessage("default", "For every Human Knight in the graveyard every Human Peasant gains 1 attack value (with a maximum gain of 5).", new Array());
+	this.AddMessage("default", "If the Human Peasant is currently on the battlefield when a Human Knight enters or leaves the graveyard, its value won't change until it leaves the battlefield.", new Array());
+	
+	this.AddMessage("zone", "The AI played a Human Knight.", new Array("battlefield"));
+	this.AddMessage("ui", "Pass our turn so that the Human Knight enters the graveyard.", new Array("pass"));
+	
+	this.AddMessage("card", "Notice how our Human Peasant's attack value in the lower right has changed (it was 3 and is now 4)?", new Array(0, 1));
+	
+	this.AddMessage("ui", "Once again pass our turn so that the AI can play.", new Array("pass"));
+	
+	this.AddMessage("zone", "The AI played another card which removed a card from the graveyard – the Human Knight.", new Array("battlefield"));
+	this.AddMessage("card", "Our Human Peasant's attack value has now returned to its original value (3).", new Array(0, 1));
+	this.AddMessage("default", "That means if we save our Human Peasants for use later they can be a lot more potent, but be wary of Human Knights being removed from the graveyard!", new Array());
+	this.AddMessage("default", "And that's that! Continue to return to the main menu.", new Array());
+	
+	{ // set up the timeout for all the messages
+		var queue = currScene.mMessageQueue.mQueue; // reference to the actual message queue
+		for (var i = 0; i < queue.length; ++i) { // for all messages in the queue
+			queue[i].SetTimeout(0.4); // set the timeout to 0.4 seconds
+		}
+	}
+}
+
+// adds the desired play card arrays to the players
+OogaahTutorialContent33.prototype.SetDesired = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+	
+	currScene.AddDesired(3, new Array(currScene.mCardList[8]), 2); // 1x human knight
+	currScene.AddDesired(0, new Array(), 0); // pass
+	currScene.AddDesired(1, new Array(), 0); // pass
+	currScene.AddDesired(2, new Array(), 1); // pass
+	currScene.AddDesired(3, new Array(), 1); // pass
+	currScene.AddDesired(0, new Array(), 0); // pass
+	currScene.AddDesired(1, new Array(currScene.mCardList[6]), 4); // 1x human cleric
+}
+// ...End
+
+
+// OogaahTutorialContent34 Class...
+// tutorial content for "orc warrior" card
+function OogaahTutorialContent34() {
+	OogaahTutorialContent.apply(this, null); // construct the base class
+};
+
+// inherit the base class's prototype
+OogaahTutorialContent34.prototype = Object.create(OogaahTutorialContent.prototype);
+
+// adds cards to the player's hands
+OogaahTutorialContent34.prototype.SetCards = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+	
+	currScene.mCurrPlayer = 3; // set the initial player to the third ai
+	
+	{ // player 0 (human)
+		// 1 orc warrior
+		currScene.mPlayers[0].mHand.AddCard(currScene.mCardList[3]);
+		
+		// 1 human cleric
+		currScene.mPlayers[0].mHand.AddCard(currScene.mCardList[6]);
+	}
+	
+	{ // player 1 (ai)
+		// 1 goblin horde - not played
+		currScene.mPlayers[1].mHand.AddCard(currScene.mCardList[0]);
+	}
+	
+	{ // player 2 (ai)
+		// 1 goblin horde - not played
+		currScene.mPlayers[2].mHand.AddCard(currScene.mCardList[0]);
+	}
+	
+	{ // player 3 (ai)
+		// 1 goblin horde - not played
+		currScene.mPlayers[3].mHand.AddCard(currScene.mCardList[0]);
+		
+		// 1 orc warrior
+		currScene.mPlayers[3].mHand.AddCard(currScene.mCardList[3]);
+	}
+}
+
+// adds messages to the tutorial message queue
+OogaahTutorialContent34.prototype.SetMessages = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+	
+	currScene.mShowMessage = 4; // the initial show message count
+	this.AddMessage("default", "Welcome to the 'Orc Warrior' tutorial!", new Array());
+	this.AddMessage("card", "In this tutorial we will learn how the Orc Warrior card works.", new Array(0, 1));
+	this.AddMessage("default", "The Orc Warrior's ability affects the next card (or squad of cards) played in the current skirmish.", new Array());
+	this.AddMessage("default", "If it is of the type Human then it will be discarded (sent straight to the graveyard) and play will revert back to the player who played the Orc Warrior.", new Array());
+	
+	this.AddMessage("zone", "The AI played an Orc Warrior.", new Array("battlefield"));
+	this.AddMessage("status", "Notice that a small icon (a piece of meat) has appeared under the current game status? This indicates that the Orc warrior's ability is in play.", new Array(2, 1));
+	this.AddMessage("card", "To see its effect, try and play our Human Cleric.", new Array(1, 1));
+	
+	this.AddMessage("zone", "Our Human Cleric went straight to the graveyard...", new Array("graveyard"));
+	this.AddMessage("ai", "...and play was reverted back to the AI that played the Orc Warrior.", new Array(3, 0));
+	this.AddMessage("status", "The Orc Warrior's ability is now no longer in effect.", new Array(2, 1));
+	this.AddMessage("default", "This can be used to block opponents from playing a combo involving Human typed cards (though the cards will still be discarded).", new Array());
+	this.AddMessage("default", "And that's that! Continue to return to the main menu.", new Array());
+	
+	{ // set up the timeout for all the messages
+		var queue = currScene.mMessageQueue.mQueue; // reference to the actual message queue
+		for (var i = 0; i < queue.length; ++i) { // for all messages in the queue
+			queue[i].SetTimeout(0.4); // set the timeout to 0.4 seconds
+		}
+	}
+}
+
+// adds the desired play card arrays to the players
+OogaahTutorialContent34.prototype.SetDesired = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+	
+	currScene.AddDesired(3, new Array(currScene.mCardList[3]), 3); // 1x warrior
+	currScene.AddDesired(0, new Array(currScene.mCardList[6]), 5); // 1x cleric
+}
+// ...End
+
+
+// OogaahTutorialContent35 Class...
+// tutorial content for "goblin technician" card
+function OogaahTutorialContent35() {
+	OogaahTutorialContent.apply(this, null); // construct the base class
+};
+
+// inherit the base class's prototype
+OogaahTutorialContent35.prototype = Object.create(OogaahTutorialContent.prototype);
+
+// adds cards to the player's hands
+OogaahTutorialContent35.prototype.SetCards = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+	
+	currScene.mCurrPlayer = 0; // set the initial player to the human
+	
+	{ // player 0 (human)
+		// 1 goblin horde
+		currScene.mPlayers[0].mHand.AddCard(currScene.mCardList[0]);
+		
+		// 1 orc warrior
+		currScene.mPlayers[0].mHand.AddCard(currScene.mCardList[3]);
+		
+		// 1 goblin technician
+		currScene.mPlayers[0].mHand.AddCard(currScene.mCardList[4]);
+	}
+	
+	{ // player 1 (ai)
+		// 1 goblin horde - not played
+		currScene.mPlayers[1].mHand.AddCard(currScene.mCardList[0]);
+	}
+	
+	{ // player 2 (ai)
+		// 1 goblin horde - not played
+		currScene.mPlayers[2].mHand.AddCard(currScene.mCardList[0]);
+		
+		// 1 orc warrior
+		currScene.mPlayers[2].mHand.AddCard(currScene.mCardList[3]);
+	}
+	
+	{ // player 3 (ai)
+		// 1 goblin horde - not played
+		currScene.mPlayers[3].mHand.AddCard(currScene.mCardList[0]);
+	}
+}
+
+// adds messages to the tutorial message queue
+OogaahTutorialContent35.prototype.SetMessages = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+	
+	currScene.mShowMessage = 6; // the initial show message count
+	this.AddMessage("default", "Welcome to the 'Goblin Technician' tutorial!", new Array());
+	this.AddMessage("card", "In this tutorial we will learn how the Goblin Technician card works.", new Array(2, 1));
+	this.AddMessage("default", "The Goblin Technician's ability allows us to trade a single card with an opponent or the graveyard.", new Array());
+	this.AddMessage("default", "After first selecting our desired target, one of their cards are chosen at random.", new Array());
+	this.AddMessage("default", "If we decide that we would like to swap for that card then we select one of ours and make the trade.", new Array());
+	this.AddMessage("card", "Play our Goblin Technician.", new Array(2, 1));
+	
+	this.AddMessage("ai", "Choose the second AI to trade cards with.", new Array(2, 0));
+	
+	this.AddMessage("ui", "A card was chosen at random (an Orc Warrior); accept it.", new Array("play"));
+	
+	this.AddMessage("card", "In our hand we have a single Goblin Horde and a single Orc Warrior.", new Array(0, 2));
+	this.AddMessage("default", "It would be wise to rid ourselves of the single Goblin Horde and at the same time double up on our Orc Warrior.", new Array());
+	this.AddMessage("card", "So choose to swap our Goblin Horde.", new Array(0, 1));
+	
+	this.AddMessage("card", "We now have 2x Orc Warrior which will certainly be easier to play later!", new Array(0, 2));
+	this.AddMessage("ai", "On top of that, the AI potenitally has a single Goblin Horde; good luck getting rid of that!", new Array(2, 0));
+	this.AddMessage("default", "As the chosen card is random, playing Goblin Technician earlier when targeting the graveyard allows more control over the chosen card.", new Array());
+	this.AddMessage("default", "Conversely, when selecting other players, waiting until later can net you a card the opponent was saving or relying upon.", new Array());
+	this.AddMessage("default", "It's worthwhile to always choose an opponent to trade with as you can cancel it after seeing which card was chosen.", new Array());
+	this.AddMessage("default", "And that's that! Continue to return to the main menu.", new Array());
+	
+	{ // set up the timeout for all the messages
+		var queue = currScene.mMessageQueue.mQueue; // reference to the actual message queue
+		for (var i = 0; i < queue.length; ++i) { // for all messages in the queue
+			queue[i].SetTimeout(0.4); // set the timeout to 0.4 seconds
+		}
+	}
+}
+
+// adds the desired play card arrays to the players
+OogaahTutorialContent35.prototype.SetDesired = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+	
+	currScene.AddDesired(0, new Array(currScene.mCardList[4]), 1); // 1x technician
+	
+	{
+		// the first card's value is the player id to swap with
+		var playerID = currScene.mCardList[0].GetCopy();
+		playerID.mCardValue = 2; 
+		
+		// the second card's value is the id of the card to choose in the hand
+		var chosenID = currScene.mCardList[0].GetCopy();
+		chosenID.mCardValue = 1;
+		
+		currScene.AddDesired(0, new Array(playerID, chosenID), 1); // playerID - swap player, chosenID - swap card
+		currScene.AddDesired(0, new Array(currScene.mCardList[4]), 3); // 1x technician - not empty implies accept
+		currScene.AddDesired(0, new Array(currScene.mCardList[0]), 6); // 1x horde (our swap card)
+	}
+}
+// ...End
+
+
+// OogaahTutorialContent36 Class...
+// tutorial content for "" card
+function OogaahTutorialContent36() {
+	OogaahTutorialContent.apply(this, null); // construct the base class
+};
+
+// inherit the base class's prototype
+OogaahTutorialContent36.prototype = Object.create(OogaahTutorialContent.prototype);
+
+// adds cards to the player's hands
+OogaahTutorialContent36.prototype.SetCards = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+	
+	currScene.mCurrPlayer = 0; // set the initial player
+}
+
+// adds messages to the tutorial message queue
+OogaahTutorialContent36.prototype.SetMessages = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+	
+	currScene.mFinished = true; // default blank tutorial - set finished to true
+	currScene.mShowMessage = 1; // the initial show message count
+	this.AddMessage("default", "And that's that! Continue to return to the main menu.", new Array());
+	
+	{ // set up the timeout for all the messages
+		var queue = currScene.mMessageQueue.mQueue; // reference to the actual message queue
+		for (var i = 0; i < queue.length; ++i) { // for all messages in the queue
+			queue[i].SetTimeout(0.4); // set the timeout to 0.4 seconds
+		}
+	}
+}
+
+// adds the desired play card arrays to the players
+OogaahTutorialContent36.prototype.SetDesired = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+}
+// ...End
+
+
+// OogaahTutorialContent37 Class...
+// tutorial content for "" card
+function OogaahTutorialContent37() {
+	OogaahTutorialContent.apply(this, null); // construct the base class
+};
+
+// inherit the base class's prototype
+OogaahTutorialContent37.prototype = Object.create(OogaahTutorialContent.prototype);
+
+// adds cards to the player's hands
+OogaahTutorialContent37.prototype.SetCards = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+	
+	currScene.mCurrPlayer = 0; // set the initial player
+}
+
+// adds messages to the tutorial message queue
+OogaahTutorialContent37.prototype.SetMessages = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+	
+	currScene.mFinished = true; // default blank tutorial - set finished to true
+	currScene.mShowMessage = 1; // the initial show message count
+	this.AddMessage("default", "And that's that! Continue to return to the main menu.", new Array());
+	
+	{ // set up the timeout for all the messages
+		var queue = currScene.mMessageQueue.mQueue; // reference to the actual message queue
+		for (var i = 0; i < queue.length; ++i) { // for all messages in the queue
+			queue[i].SetTimeout(0.4); // set the timeout to 0.4 seconds
+		}
+	}
+}
+
+// adds the desired play card arrays to the players
+OogaahTutorialContent37.prototype.SetDesired = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+}
+// ...End
+
+
+// OogaahTutorialContent38 Class...
+// tutorial content for "" card
+function OogaahTutorialContent38() {
+	OogaahTutorialContent.apply(this, null); // construct the base class
+};
+
+// inherit the base class's prototype
+OogaahTutorialContent38.prototype = Object.create(OogaahTutorialContent.prototype);
+
+// adds cards to the player's hands
+OogaahTutorialContent38.prototype.SetCards = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+	
+	currScene.mCurrPlayer = 0; // set the initial player
+}
+
+// adds messages to the tutorial message queue
+OogaahTutorialContent38.prototype.SetMessages = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+	
+	currScene.mFinished = true; // default blank tutorial - set finished to true
+	currScene.mShowMessage = 1; // the initial show message count
+	this.AddMessage("default", "And that's that! Continue to return to the main menu.", new Array());
+	
+	{ // set up the timeout for all the messages
+		var queue = currScene.mMessageQueue.mQueue; // reference to the actual message queue
+		for (var i = 0; i < queue.length; ++i) { // for all messages in the queue
+			queue[i].SetTimeout(0.4); // set the timeout to 0.4 seconds
+		}
+	}
+}
+
+// adds the desired play card arrays to the players
+OogaahTutorialContent38.prototype.SetDesired = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+}
+// ...End
+
+
+// OogaahTutorialContent39 Class...
+// tutorial content for "" card
+function OogaahTutorialContent39() {
+	OogaahTutorialContent.apply(this, null); // construct the base class
+};
+
+// inherit the base class's prototype
+OogaahTutorialContent39.prototype = Object.create(OogaahTutorialContent.prototype);
+
+// adds cards to the player's hands
+OogaahTutorialContent39.prototype.SetCards = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+	
+	currScene.mCurrPlayer = 0; // set the initial player
+}
+
+// adds messages to the tutorial message queue
+OogaahTutorialContent39.prototype.SetMessages = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+	
+	currScene.mFinished = true; // default blank tutorial - set finished to true
+	currScene.mShowMessage = 1; // the initial show message count
+	this.AddMessage("default", "And that's that! Continue to return to the main menu.", new Array());
+	
+	{ // set up the timeout for all the messages
+		var queue = currScene.mMessageQueue.mQueue; // reference to the actual message queue
+		for (var i = 0; i < queue.length; ++i) { // for all messages in the queue
+			queue[i].SetTimeout(0.4); // set the timeout to 0.4 seconds
+		}
+	}
+}
+
+// adds the desired play card arrays to the players
+OogaahTutorialContent39.prototype.SetDesired = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+}
+// ...End
+
+
+// OogaahTutorialContent3C Class...
+// tutorial content for "" card
+function OogaahTutorialContent3C() {
+	OogaahTutorialContent.apply(this, null); // construct the base class
+};
+
+// inherit the base class's prototype
+OogaahTutorialContent3C.prototype = Object.create(OogaahTutorialContent.prototype);
+
+// adds cards to the player's hands
+OogaahTutorialContent3C.prototype.SetCards = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+	
+	currScene.mCurrPlayer = 0; // set the initial player
+}
+
+// adds messages to the tutorial message queue
+OogaahTutorialContent3C.prototype.SetMessages = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+	
+	currScene.mFinished = true; // default blank tutorial - set finished to true
+	currScene.mShowMessage = 1; // the initial show message count
+	this.AddMessage("default", "And that's that! Continue to return to the main menu.", new Array());
+	
+	{ // set up the timeout for all the messages
+		var queue = currScene.mMessageQueue.mQueue; // reference to the actual message queue
+		for (var i = 0; i < queue.length; ++i) { // for all messages in the queue
+			queue[i].SetTimeout(0.4); // set the timeout to 0.4 seconds
+		}
+	}
+}
+
+// adds the desired play card arrays to the players
+OogaahTutorialContent3C.prototype.SetDesired = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+}
+// ...End
+
+
+// OogaahTutorialContent3B Class...
+// tutorial content for "" card
+function OogaahTutorialContent3B() {
+	OogaahTutorialContent.apply(this, null); // construct the base class
+};
+
+// inherit the base class's prototype
+OogaahTutorialContent3B.prototype = Object.create(OogaahTutorialContent.prototype);
+
+// adds cards to the player's hands
+OogaahTutorialContent3B.prototype.SetCards = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+	
+	currScene.mCurrPlayer = 0; // set the initial player
+}
+
+// adds messages to the tutorial message queue
+OogaahTutorialContent3B.prototype.SetMessages = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+	
+	currScene.mFinished = true; // default blank tutorial - set finished to true
+	currScene.mShowMessage = 1; // the initial show message count
+	this.AddMessage("default", "And that's that! Continue to return to the main menu.", new Array());
+	
+	{ // set up the timeout for all the messages
+		var queue = currScene.mMessageQueue.mQueue; // reference to the actual message queue
+		for (var i = 0; i < queue.length; ++i) { // for all messages in the queue
+			queue[i].SetTimeout(0.4); // set the timeout to 0.4 seconds
+		}
+	}
+}
+
+// adds the desired play card arrays to the players
+OogaahTutorialContent3B.prototype.SetDesired = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+}
+// ...End
+
+
+// OogaahTutorialContent3A Class...
+// tutorial content for "" card
+function OogaahTutorialContent3A() {
+	OogaahTutorialContent.apply(this, null); // construct the base class
+};
+
+// inherit the base class's prototype
+OogaahTutorialContent3A.prototype = Object.create(OogaahTutorialContent.prototype);
+
+// adds cards to the player's hands
+OogaahTutorialContent3A.prototype.SetCards = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+	
+	currScene.mCurrPlayer = 0; // set the initial player
+}
+
+// adds messages to the tutorial message queue
+OogaahTutorialContent3A.prototype.SetMessages = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+	
+	currScene.mFinished = true; // default blank tutorial - set finished to true
+	currScene.mShowMessage = 1; // the initial show message count
+	this.AddMessage("default", "And that's that! Continue to return to the main menu.", new Array());
+	
+	{ // set up the timeout for all the messages
+		var queue = currScene.mMessageQueue.mQueue; // reference to the actual message queue
+		for (var i = 0; i < queue.length; ++i) { // for all messages in the queue
+			queue[i].SetTimeout(0.4); // set the timeout to 0.4 seconds
+		}
+	}
+}
+
+// adds the desired play card arrays to the players
+OogaahTutorialContent3A.prototype.SetDesired = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+}
+// ...End
+
+
+// OogaahTutorialContent3S Class...
+// tutorial content for "" card
+function OogaahTutorialContent3S() {
+	OogaahTutorialContent.apply(this, null); // construct the base class
+};
+
+// inherit the base class's prototype
+OogaahTutorialContent3S.prototype = Object.create(OogaahTutorialContent.prototype);
+
+// adds cards to the player's hands
+OogaahTutorialContent3S.prototype.SetCards = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+	
+	currScene.mCurrPlayer = 0; // set the initial player
+}
+
+// adds messages to the tutorial message queue
+OogaahTutorialContent3S.prototype.SetMessages = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+	
+	currScene.mFinished = true; // default blank tutorial - set finished to true
+	currScene.mShowMessage = 1; // the initial show message count
+	this.AddMessage("default", "And that's that! Continue to return to the main menu.", new Array());
+	
+	{ // set up the timeout for all the messages
+		var queue = currScene.mMessageQueue.mQueue; // reference to the actual message queue
+		for (var i = 0; i < queue.length; ++i) { // for all messages in the queue
+			queue[i].SetTimeout(0.4); // set the timeout to 0.4 seconds
+		}
+	}
+}
+
+// adds the desired play card arrays to the players
+OogaahTutorialContent3S.prototype.SetDesired = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+}
+// ...End
+
+
+// OogaahTutorialContent4 Class...
+// tutorial content for "example round" tutorial
+function OogaahTutorialContent4() {
+	OogaahTutorialContent.apply(this, null); // construct the base class
+};
+
+// inherit the base class's prototype
+OogaahTutorialContent4.prototype = Object.create(OogaahTutorialContent.prototype);
+
+// adds cards to the player's hands
+OogaahTutorialContent4.prototype.SetCards = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+	
+	currScene.mCurrPlayer = 0; // set the initial player to the human
+	
+	{ // player 0 (human)
+		// 1 goblin horde
+		currScene.mPlayers[0].mHand.AddCard(currScene.mCardList[0]);
+		
+		// 2 goblin overseer
+		currScene.mPlayers[0].mHand.AddCard(currScene.mCardList[1]);
+		currScene.mPlayers[0].mHand.AddCard(currScene.mCardList[1]);
+		
+		// 1 human peasant
+		currScene.mPlayers[0].mHand.AddCard(currScene.mCardList[2]);
+		
+		// 1 orc berserker
+		currScene.mPlayers[0].mHand.AddCard(currScene.mCardList[9]);
+		
+		// 1 being of light
+		currScene.mPlayers[0].mHand.AddCard(currScene.mCardList[12]);
+	}
+	
+	{ // player 1 (ai)
+		// 3 goblin horde - not played
+		currScene.mPlayers[1].mHand.AddCard(currScene.mCardList[0]);
+		currScene.mPlayers[1].mHand.AddCard(currScene.mCardList[0]);
+		currScene.mPlayers[1].mHand.AddCard(currScene.mCardList[0]);
+		
+		// 2 goblin horde
+		currScene.mPlayers[1].mHand.AddCard(currScene.mCardList[0]);
+		currScene.mPlayers[1].mHand.AddCard(currScene.mCardList[0]);
+		
+		// 1 goblin overseer
+		currScene.mPlayers[1].mHand.AddCard(currScene.mCardList[1]);
+	}
+	
+	{ // player 2 (ai)
+		// 5 goblin horde - not played
+		currScene.mPlayers[2].mHand.AddCard(currScene.mCardList[0]);
+		currScene.mPlayers[2].mHand.AddCard(currScene.mCardList[0]);
+		currScene.mPlayers[2].mHand.AddCard(currScene.mCardList[0]);
+		currScene.mPlayers[2].mHand.AddCard(currScene.mCardList[0]);
+		currScene.mPlayers[2].mHand.AddCard(currScene.mCardList[0]);
+		
+		// 2 goblin horde
+		currScene.mPlayers[2].mHand.AddCard(currScene.mCardList[0]);
+		currScene.mPlayers[2].mHand.AddCard(currScene.mCardList[0]);
+		
+		// 1 human mage
+		currScene.mPlayers[2].mHand.AddCard(currScene.mCardList[7]);
+		
+		// 1 human knight
+		currScene.mPlayers[2].mHand.AddCard(currScene.mCardList[8]);
+		
+		// 1 human paladin
+		currScene.mPlayers[2].mHand.AddCard(currScene.mCardList[11]);
+	}
+	
+	{ // player 3 (ai)
+		// 2 goblin horde - not played
+		currScene.mPlayers[3].mHand.AddCard(currScene.mCardList[0]);
+		currScene.mPlayers[3].mHand.AddCard(currScene.mCardList[0]);
+		
+		// 2 orc berserker
+		currScene.mPlayers[3].mHand.AddCard(currScene.mCardList[9]);
+		currScene.mPlayers[3].mHand.AddCard(currScene.mCardList[9]);
+		
+		// 1 orc warchief
+		currScene.mPlayers[3].mHand.AddCard(currScene.mCardList[10]);
+	}
+}
+
+// adds messages to the tutorial message queue
+OogaahTutorialContent4.prototype.SetMessages = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+	
+	currScene.mShowMessage = 4; // the initial show message count
+	this.AddMessage("default", "Welcome to the 'Example Round' tutorial!", new Array());
+	this.AddMessage("default", "In this tutorial we will play a short round of Oogaah.", new Array());
+	this.AddMessage("default", "It is currently our turn and no cards have been played yet, so we can play whichever cards we like.", new Array());
+	this.AddMessage("card", "Start by playing both of our Goblin Overseers.", new Array(1, 2));
+	
+	this.AddMessage("default", "Our Goblin Overseer's ability activated which allows us to play any Goblin Hordes in our hand.", new Array());
+	this.AddMessage("card", "Now would be a great time to get rid of our single Goblin Horde, so play it now.", new Array(0, 1));
+	
+	this.AddMessage("status", "When using this ability, the Current Attack Value and Required Squad Size both become 1, regardless of the number of Goblin Hordes played.", new Array(0, 2));
+	
+	this.AddMessage("zone", "The first AI made a play similar to ours (Goblin Overseer, then Goblin Hordes via its ability).", new Array("battlefield"));
+	
+	this.AddMessage("zone", "The second AI played 2 Goblin Hordes using their ability.", new Array("battlefield"));
+	this.AddMessage("status", "This ignores the Required Squad Size (setting both it and the Current Attack Value to the number of Goblin Hordes played).", new Array(0, 2));
+	
+	this.AddMessage("zone", "The third AI just played 2 Orc Berserkers.", new Array("battlefield"));
+	this.AddMessage("card", "Notice that our Orc Berserker actually lost some attack value!", new Array(1, 1));
+	this.AddMessage("default", "This persists throughout the current battle, so it's usually wise to dispose of them early on.", new Array());
+	this.AddMessage("ui", "We can't currently make a move, so pass our turn.", new Array("pass"));
+	this.AddMessage("ai", "No one could make a move (or chose not to) and it passed back the the last player who played. As a result the current game status has reset and it is now the third AI's turn again.", new Array(3, 0));
+	
+	this.AddMessage("zone", "The third AI played an Orc Warchief.", new Array("battlefield"));
+	this.AddMessage("card", "Whilst we could play our Being of Energy, sometimes it is wiser to save cards to play in combos later.", new Array(2, 1));
+	this.AddMessage("ui", "So for now, just pass our turn.", new Array("pass"));
+	
+	this.AddMessage("ui", "Once again we'd like to save our cards, so pass.", new Array("pass"));
+	
+	this.AddMessage("zone", "The second AI just played a Human Knight which activated its ability.", new Array("battlefield"));
+	this.AddMessage("status", "This means that the only card that can be played next in the current skirmish is a Human Peasant.", new Array(2, 1));
+	
+	this.AddMessage("card", "It's our turn and the Human Knight's ability is still in effect, so play our Human Peasant.", new Array(0, 1));
+	
+	this.AddMessage("zone", "It is once again our turn and the current card is a Human Mage.", new Array("battlefield"));
+	this.AddMessage("default", "We can now go on to win the battle from here by playing our Being of Energy. It has the highest attack value and nothing can beat it when it is played by itself.", new Array());
+	this.AddMessage("card", "So go ahead and play our Being of Energy.", new Array(1, 1));
+	
+	this.AddMessage("zone", "The board has been cleared, we have only 1 card left and it is our turn.", new Array("battlefield"));
+	this.AddMessage("card", "Play our last card - the Orc Berserker - and win the battle!", new Array(0, 1));
+	
+	this.AddMessage("default", "Congratulations, a masterful victory! Continue to return to the main menu.", new Array());
+	
+	{ // set up the timeout for all the messages
+		var queue = currScene.mMessageQueue.mQueue; // reference to the actual message queue
+		for (var i = 0; i < queue.length; ++i) { // for all messages in the queue
+			queue[i].SetTimeout(0.4); // set the timeout to 0.4 seconds
+		}
+	}
+}
+
+// adds the desired play card arrays to the players
+OogaahTutorialContent4.prototype.SetDesired = function() {
+	var currScene = nmgrs.sceneMan.mCurrScene; // reference to the current scene
+	
+	currScene.AddDesired(0, new Array(currScene.mCardList[1], currScene.mCardList[1]), 2); //
+	currScene.AddDesired(0, new Array(currScene.mCardList[0]), 1); //
+	currScene.AddDesired(1, new Array(currScene.mCardList[1]), 0); //
+	currScene.AddDesired(1, new Array(currScene.mCardList[0], currScene.mCardList[0]), 1); //
+	currScene.AddDesired(2, new Array(currScene.mCardList[0], currScene.mCardList[0]), 2); //
+	currScene.AddDesired(3, new Array(currScene.mCardList[9], currScene.mCardList[9]), 4); //
+	currScene.AddDesired(0, new Array(), 0); //
+	currScene.AddDesired(1, new Array(), 0); //
+	currScene.AddDesired(2, new Array(), 1); //
+	
+	currScene.AddDesired(3, new Array(currScene.mCardList[10]), 3); //
+	currScene.AddDesired(0, new Array(), 0); //
+	currScene.AddDesired(1, new Array(), 0); //
+	currScene.AddDesired(2, new Array(currScene.mCardList[11]), 0); //
+	currScene.AddDesired(3, new Array(), 1); //
+	currScene.AddDesired(0, new Array(), 0); //
+	currScene.AddDesired(1, new Array(), 0); //
+	
+	currScene.AddDesired(2, new Array(currScene.mCardList[8]), 2); //
+	currScene.AddDesired(3, new Array(), 1); //
+	currScene.AddDesired(0, new Array(currScene.mCardList[2]), 0); //
+	currScene.AddDesired(1, new Array(), 0); //
+	currScene.AddDesired(2, new Array(currScene.mCardList[7]), 0); //
+	currScene.AddDesired(3, new Array(), 3); //
+	currScene.AddDesired(0, new Array(currScene.mCardList[12]), 0); //
+	currScene.AddDesired(1, new Array(), 0); //
+	currScene.AddDesired(2, new Array(), 0); //
+	currScene.AddDesired(3, new Array(), 2); //
+	
+	{
+		var card = currScene.mCardList[9].GetCopy();
+		card.ModifyValue(-2);
+		
+		currScene.AddDesired(0, new Array(card),1); //
+	}
 }
 // ...End
 
@@ -13555,9 +15242,22 @@ OogaahCardHumanCleric.prototype.Play = function(cards) {
 				{ // ability
 					currScene.mLog.AddEntry(5, currPlayer.mName + " activated ability " + this.mCardAbility + ".");
 					
-					for (var i = 0; i < currScene.mPlayers.length; ++i) {
+					var playerArr = new Array();
+					
+					{ // add all other players, going clockwise
+						for (var i = currScene.mCurrPlayer + 1; i < currScene.mPlayers.length; ++i) {
+							playerArr.push(i);
+						}
+						
+						for (var i = 0; i < currScene.mCurrPlayer; ++i) {
+							playerArr.push(i);
+						}
+					}
+					
+					for (var i = 0; i < playerArr.length; ++i) {
+						var pid = playerArr[i];
 						// if not this player and the player is still in the game
-						if (i != currScene.mCurrPlayer && currScene.mPlayers[i].mFinished == false) {
+						if (pid != currScene.mCurrPlayer && currScene.mPlayers[pid].mFinished == false) {
 							if (currScene.mGraveyard.mCards.length == 0) { // if the graveyard is empty
 								break; // stop
 							}
@@ -13581,9 +15281,9 @@ OogaahCardHumanCleric.prototype.Play = function(cards) {
 							}
 							
 							currScene.mGraveyard.RemoveCard(id); // remove card from the graveyard
-							currScene.mPlayers[i].mHand.AddCard(card); // add it to the player's hand
-							currScene.mPlayers[i].PositionHand(); // reposition the player's hand
-							currScene.mPlayers[i].ResetSelected();
+							currScene.mPlayers[pid].mHand.AddCard(card); // add it to the player's hand
+							currScene.mPlayers[pid].PositionHand(); // reposition the player's hand
+							currScene.mPlayers[pid].ResetSelected();
 						}
 					}
 				}
