@@ -6,19 +6,13 @@ function Texture() {
 	this.mTypes = new Array(); // a list of the file types to load
 	
 	// called when the image successfully loads
-	this.mImg.onload = function() {
-		this.mLoaded = "load";
-	}
+	this.mImg.addEventListener("load",  function(){this.mLoaded = "load"}, false);
 	
 	// called when the image loading is cancelled
-	this.mImg.onabort = function() {
-		this.mLoaded = "abort";
-	}
+	this.mImg.addEventListener("abort",  function(){this.mLoaded = "abort"}, false);
 	
 	// called when the image fails to load
-	this.mImg.onerror = function() {
-		this.mLoaded = "error";
-	}
+	this.mImg.addEventListener("error",  function(){this.mLoaded = "error"}, false);
 };
 
 // returns the type of this object for validity checking

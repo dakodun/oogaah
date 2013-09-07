@@ -5,19 +5,13 @@ function SoundBuffer() {
 	this.mAud.mLoaded = ""; // the audio element's load status
 	
 	// called when the audio successfully loads
-	this.mAud.oncanplaythrough = function() {
-		this.mLoaded = "load";
-	}
+	this.mAud.addEventListener("canplaythrough",  function(){this.mLoaded = "load"}, false);
 	
 	// called when the audio loading is cancelled
-	this.mAud.onabort = function() {
-		this.mLoaded = "abort";
-	}
+	this.mAud.addEventListener("abort",  function(){this.mLoaded = "abort"}, false);
 	
 	// called when the audio fails to load
-	this.mAud.onerror = function() {
-		this.mLoaded = "error";
-	}
+	this.mAud.addEventListener("error",  function(){this.mLoaded = "error"}, false);
 };
 
 // returns the type of this object for validity checking
