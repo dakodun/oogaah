@@ -17,7 +17,6 @@ function OogaahTutorialScene() {
 	this.mMessageQueue = new OogaahTutorialMessageQueue(); // the queue for tutorial messages
 	this.mMessageMeta = new Array(); // holds meta data about the messages in the queue
 	this.mShowMessage = 0; // the current message iterator (when > 0, show message at front of queue)
-	this.mFinished = false; // is the tutorial finished
 	
 	this.mTutorialContent = null; // the object that holds the tutorials content (players hands, messages and desired plays)
 	
@@ -140,15 +139,10 @@ OogaahTutorialScene.prototype.Input = function() {
 		var clicked = this.mMessageQueue.Input(); // handle message queue input, returning true if message was removed from queue
 		
 		if (clicked == true) { // if message was removed from queue
-			if (this.mShowMessage == 1 && this.mFinished == true) { // if we are at the last message and our tutorial is finished
-				nmgrs.sceneMan.RequestSceneChange(new OogaahMenuScene()); // return to main menu
-			}
-			else {
-				--this.mShowMessage; // decrement the message iterator
-				
-				if (this.mMessageMeta.length > 0) { // if there is still message meta data
-					this.mMessageMeta.splice(0, 1); // remove 1 from the meta data
-				}
+			--this.mShowMessage; // decrement the message iterator
+			
+			if (this.mMessageMeta.length > 0) { // if there is still message meta data
+				this.mMessageMeta.splice(0, 1); // remove 1 from the meta data
 			}
 		}
 	}
@@ -161,9 +155,20 @@ OogaahTutorialScene.prototype.Process = function() {
 		
 		this.mGraveyard.Process(); // process the graveyard
 		
+		var finished = true; // assume we are finished initially
 		for (var i = 0; i < this.mPlayers.length; ++i) { // for all players
-			if (this.mPlayers[i].mType == "Human") { // if the player is human 
+			if (this.mPlayers[i].mType == "Human") { // if the player is human
 				this.mPlayers[i].Process(); // process the player
+				
+				if (this.mPlayers[i].mDesired.length != 0) { // if the player still has desired plays
+					finished = false; // then we aren't finished
+				}
+			}
+			else if (this.mPlayers[i].mType == "AI") { // otherwise if the player is ai
+				// if the player still has desired plays
+				if (this.mPlayers[i].mBehaviourStore.mBehaviours[0].mDesired.length != 0) {
+					finished = false; // then we aren't finished
+				}
 			}
 		}
 		
@@ -196,6 +201,11 @@ OogaahTutorialScene.prototype.Process = function() {
 			lastPlayer.mFinished = true; // last player has now finished
 			++this.mFinishedCount; // increment count of finished players
 			this.mLastPlayer = -1; // unset last player to play
+		}
+		
+		// if there are no more desired plays and the message queue is empty
+		if (finished == true && this.mMessageQueue.mQueue.length == 0) {
+			nmgrs.sceneMan.RequestSceneChange(new OogaahMenuScene()); // return to main menu
 		}
 	}
 	else {

@@ -102,10 +102,6 @@ OogaahTutorialHuman.prototype.OnPlay = function() {
 				currScene.AddRepeatMessage(); // add a repeated instruction message
 			}
 		}
-		
-		if (this.mDesired.length == 0) { // if there are no more desired cards
-			currScene.mFinished = true; // we are done with the tutorial
-		}
 	}
 }
 
@@ -262,10 +258,6 @@ OogaahTutorialHuman.prototype.OnPass = function() {
 			this.ResetSelected(); // reset selected states
 			currScene.ChangePlayer(); // change to the next player
 			currScene.mDelay = 1000;
-		}
-		
-		if (this.mDesired.length == 0) {
-			currScene.mFinished = true;
 		}
 	}
 }
