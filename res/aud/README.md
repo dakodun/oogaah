@@ -1,0 +1,1 @@
+The files and subfolders in this folder hold audio resources, such as music and sounds.

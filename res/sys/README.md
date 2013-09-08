@@ -1,0 +1,1 @@
+The files and subfolders in this folder hold system resources, such as fonts and configs.
